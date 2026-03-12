@@ -12,6 +12,7 @@ import {
 import { NativeStackScreenProps } from '@react-navigation/native-stack';
 import { getRides, joinRide, Ride } from '../services/rides';
 import { RootStackParamList } from '../types/navigation';
+import AppHeader from '../components/AppHeader';
 
 type Props = NativeStackScreenProps<RootStackParamList, 'RideList'>;
 
@@ -83,12 +84,7 @@ export default function RideListScreen({ navigation }: Props) {
 
   return (
     <View style={styles.container}>
-      <View style={styles.header}>
-        <Text style={styles.headerTitle}>Rides</Text>
-        <TouchableOpacity onPress={() => navigation.navigate('Profile')} style={styles.profileButton}>
-          <Text style={styles.profileButtonText}>Profile</Text>
-        </TouchableOpacity>
-      </View>
+      <AppHeader title="Rides" navigation={navigation} />
 
       <FlatList
         data={rides}
@@ -195,25 +191,6 @@ export default function RideListScreen({ navigation }: Props) {
 
 const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: '#0f1117' },
-  header: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    paddingHorizontal: 20,
-    paddingTop: 56,
-    paddingBottom: 16,
-    borderBottomWidth: 1,
-    borderBottomColor: '#1a2030',
-  },
-  headerTitle: { color: '#f1f5f9', fontSize: 28, fontWeight: '700' },
-  profileButton: {
-    paddingHorizontal: 14,
-    paddingVertical: 7,
-    borderRadius: 8,
-    borderWidth: 1,
-    borderColor: '#2d3748',
-  },
-  profileButtonText: { color: '#38bdf8', fontSize: 14, fontWeight: '600' },
   centered: { flex: 1, justifyContent: 'center', alignItems: 'center', padding: 24 },
   emptyContainer: { flexGrow: 1, justifyContent: 'center', alignItems: 'center' },
   listContent: { padding: 16 },

@@ -6,9 +6,14 @@ export interface Ride {
   description: string | null;
   type: 'rally' | 'explorer';
   status: string;
+  location: string | null;
+  featured_image: string | null;
   start_date: string | null;
   end_date: string | null;
   is_joined: boolean;
+  total_waypoints: number;
+  hit_count: number;
+  completion_pct: number;
 }
 
 export interface Waypoint {

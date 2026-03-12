@@ -3,6 +3,14 @@
     "version": ">= 18.0.0"
   },
   "build": {
+    "development": {
+      "environment": "preview",
+      "developmentClient": true,
+      "distribution": "internal",
+      "android": {
+        "buildType": "apk"
+      }
+    },
     "preview": {
       "environment": "preview",
       "android": {

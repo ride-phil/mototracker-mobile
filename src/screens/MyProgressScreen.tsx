@@ -105,11 +105,28 @@ export default function MyProgressScreen({ route, navigation }: Props) {
               <Text style={[styles.summaryNumber, styles.summaryNumberPending]}>{pendingCount}</Text>
               <Text style={styles.summaryLabel}>Pending{'\n'}Review</Text>
             </View>
-            <View style={styles.summaryCard}>
-              <Text style={[styles.summaryNumber, styles.summaryNumberRide]}>
-                {ride.type === 'rally' ? 'Rally' : 'Explorer'}
+            <View style={[styles.summaryCard, styles.summaryCardPct]}>
+              <Text style={[styles.summaryNumber, styles.summaryNumberPct]}>
+                {ride.completion_pct}%
               </Text>
-              <Text style={styles.summaryLabel}>Ride{'\n'}Type</Text>
+              <Text style={styles.summaryLabel}>Complete</Text>
+            </View>
+          </View>
+
+          {/* Points card */}
+          <View style={styles.pointsCard}>
+            <View style={styles.pointsHeader}>
+              <Text style={styles.pointsLabel}>RIDE POINTS</Text>
+              <Text style={styles.pointsValue}>
+                <Text style={styles.pointsCurrent}>{hitCount}</Text>
+                <Text style={styles.pointsMax}> of {ride.total_waypoints} Max</Text>
+              </Text>
+            </View>
+            <View style={styles.pointsTrack}>
+              <View style={[
+                styles.pointsFill,
+                { width: ride.total_waypoints > 0 ? `${ride.completion_pct}%` : '0%' },
+              ]} />
             </View>
           </View>
 
@@ -221,6 +238,9 @@ const styles = StyleSheet.create({
   summaryCardMiddle: {
     borderColor: '#854d0e',
   },
+  summaryCardPct: {
+    borderColor: '#1e3a5f',
+  },
   summaryNumber: {
     color: '#38bdf8',
     fontSize: 28,
@@ -230,10 +250,52 @@ const styles = StyleSheet.create({
   summaryNumberPending: {
     color: '#fbbf24',
   },
-  summaryNumberRide: {
+  summaryNumberPct: {
+    color: '#38bdf8',
+  },
+  pointsCard: {
+    backgroundColor: '#1a2030',
+    borderRadius: 12,
+    borderWidth: 1,
+    borderColor: '#2d3748',
+    padding: 16,
+    marginBottom: 28,
+  },
+  pointsHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'baseline',
+    marginBottom: 12,
+  },
+  pointsLabel: {
+    color: '#475569',
+    fontSize: 11,
+    fontWeight: '700',
+    letterSpacing: 1,
+  },
+  pointsValue: {
+    fontSize: 16,
+  },
+  pointsCurrent: {
+    color: '#f1f5f9',
+    fontSize: 22,
+    fontWeight: '700',
+  },
+  pointsMax: {
+    color: '#64748b',
     fontSize: 14,
-    marginTop: 4,
-    marginBottom: 6,
+    fontWeight: '400',
+  },
+  pointsTrack: {
+    height: 8,
+    backgroundColor: '#2d3748',
+    borderRadius: 4,
+    overflow: 'hidden',
+  },
+  pointsFill: {
+    height: '100%',
+    backgroundColor: '#38bdf8',
+    borderRadius: 4,
   },
   summaryLabel: {
     color: '#475569',

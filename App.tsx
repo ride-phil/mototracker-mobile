@@ -10,6 +10,7 @@ import RideDetailScreen from './src/screens/RideDetailScreen';
 import SubmitVerificationScreen from './src/screens/SubmitVerificationScreen';
 import MyProgressScreen from './src/screens/MyProgressScreen';
 import ProfileScreen from './src/screens/ProfileScreen';
+import OnboardingScreen from './src/screens/OnboardingScreen';
 import { getStoredUser, AuthUser } from './src/services/auth';
 import { RootStackParamList } from './src/types/navigation';
 
@@ -59,6 +60,7 @@ export default function App() {
           <Stack.Screen name="RideDetail" component={RideDetailScreen} />
           <Stack.Screen name="SubmitVerification" component={SubmitVerificationScreen} />
           <Stack.Screen name="MyProgress" component={MyProgressScreen} />
+          <Stack.Screen name="Onboarding" component={OnboardingScreen} />
           <Stack.Screen name="Profile">
             {(props) => <ProfileScreen {...props} onLogout={() => setUser(null)} />}
           </Stack.Screen>

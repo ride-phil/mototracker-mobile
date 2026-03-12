@@ -20,8 +20,9 @@ interface Props {
 }
 
 const MENU_ITEMS = [
-  { screen: 'RideList', icon: '🏍', label: 'Rides' },
-  { screen: 'Profile',  icon: '👤', label: 'Profile' },
+  { screen: 'RideList',   icon: '🏍', label: 'Rides' },
+  { screen: 'Onboarding', icon: '📡', label: 'GPS Setup' },
+  { screen: 'Profile',    icon: '👤', label: 'Profile' },
 ];
 
 export default function DrawerMenu({ visible, onClose, onNavigate }: Props) {

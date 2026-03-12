@@ -1,22 +1,24 @@
 {
   "expo": {
-    "name": "mototracker-mobile",
+    "name": "MotoTracker",
     "slug": "mototracker-mobile",
     "version": "1.0.0",
     "orientation": "portrait",
     "icon": "./assets/icon.png",
-    "userInterfaceStyle": "light",
+    "userInterfaceStyle": "dark",
     "splash": {
       "image": "./assets/splash-icon.png",
       "resizeMode": "contain",
-      "backgroundColor": "#ffffff"
+      "backgroundColor": "#0f1117"
     },
     "ios": {
-      "supportsTablet": true
+      "supportsTablet": false,
+      "bundleIdentifier": "app.mototracker.rider"
     },
     "android": {
+      "package": "app.mototracker.rider",
       "adaptiveIcon": {
-        "backgroundColor": "#E6F4FE",
+        "backgroundColor": "#0f1117",
         "foregroundImage": "./assets/android-icon-foreground.png",
         "backgroundImage": "./assets/android-icon-background.png",
         "monochromeImage": "./assets/android-icon-monochrome.png"
@@ -26,6 +28,14 @@
     "web": {
       "favicon": "./assets/favicon.png"
     },
+    "plugins": [
+      [
+        "@rnmapbox/maps",
+        {
+          "RNMapboxMapsDownloadToken": "MAPBOX_DOWNLOAD_TOKEN"
+        }
+      ]
+    ],
     "extra": {
       "eas": {
         "projectId": "6cba8956-3e71-4dbf-bb8e-1a9b4dd8fab9"

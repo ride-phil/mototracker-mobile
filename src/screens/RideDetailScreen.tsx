@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect } from 'react';
 import {
   View,
   Text,
@@ -6,47 +6,97 @@ import {
   TouchableOpacity,
   StyleSheet,
   ActivityIndicator,
-  Dimensions,
+  Image,
+  Alert,
+  Linking,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { NativeStackScreenProps } from '@react-navigation/native-stack';
 import Mapbox from '@rnmapbox/maps';
 import Constants from 'expo-constants';
-import { Waypoint, getWaypoints, joinRide } from '../services/rides';
+import { Waypoint, getWaypoints, joinRide, leaveRide, downloadAndShareGpx } from '../services/rides';
 import { RootStackParamList } from '../types/navigation';
 
 Mapbox.setAccessToken(Constants.expoConfig?.extra?.mapboxToken ?? '');
 
-const { width } = Dimensions.get('window');
-const MAP_HEIGHT = 280;
+const MAP_HEIGHT = 260;
 
 type Props = NativeStackScreenProps<RootStackParamList, 'RideDetail'>;
 
 export default function RideDetailScreen({ route, navigation }: Props) {
-  const ride = route.params.ride;
+  const initialRide = route.params.ride;
   const [waypoints, setWaypoints]   = useState<Waypoint[]>([]);
   const [loading, setLoading]       = useState(true);
+  const [isJoined, setIsJoined]     = useState(initialRide.is_joined);
   const [joining, setJoining]       = useState(false);
-  const [isJoined, setIsJoined]     = useState(ride.is_joined);
+  const [leaving, setLeaving]       = useState(false);
+  const [downloading, setDownloading] = useState(false);
   const [error, setError]           = useState<string | null>(null);
 
+  // Live progress numbers (may have updated since list was fetched)
+  const hitCount       = initialRide.hit_count;
+  const totalWaypoints = initialRide.total_waypoints;
+  const completionPct  = initialRide.completion_pct;
+
   useEffect(() => {
-    getWaypoints(ride.id)
+    getWaypoints(initialRide.id)
       .then(setWaypoints)
       .catch(e => setError(e.message))
       .finally(() => setLoading(false));
-  }, [ride.id]);
+  }, [initialRide.id]);
 
   async function handleJoin() {
     setJoining(true);
+    setError(null);
     try {
-      await joinRide(ride.id);
+      await joinRide(initialRide.id);
       setIsJoined(true);
     } catch (e: any) {
       setError(e.message || 'Failed to join ride.');
     } finally {
       setJoining(false);
     }
+  }
+
+  function confirmLeave() {
+    Alert.alert(
+      'Leave Ride',
+      `Are you sure you want to leave "${initialRide.name}"? Your progress will be removed.`,
+      [
+        { text: 'Cancel', style: 'cancel' },
+        { text: 'Leave', style: 'destructive', onPress: doLeave },
+      ]
+    );
+  }
+
+  async function doLeave() {
+    setLeaving(true);
+    setError(null);
+    try {
+      await leaveRide(initialRide.id);
+      setIsJoined(false);
+    } catch (e: any) {
+      setError(e.message || 'Failed to leave ride.');
+    } finally {
+      setLeaving(false);
+    }
+  }
+
+  async function handleDownloadGpx() {
+    setDownloading(true);
+    setError(null);
+    try {
+      await downloadAndShareGpx(initialRide.id, initialRide.name);
+    } catch (e: any) {
+      setError(e.message || 'Failed to download GPX.');
+    } finally {
+      setDownloading(false);
+    }
+  }
+
+  function openDirections(wp: Waypoint) {
+    const url = `https://www.google.com/maps/dir/?api=1&destination=${wp.latitude},${wp.longitude}`;
+    Linking.openURL(url).catch(() => setError('Could not open maps app.'));
   }
 
   function formatDate(iso: string | null): string {
@@ -56,20 +106,19 @@ export default function RideDetailScreen({ route, navigation }: Props) {
     });
   }
 
-  // Compute map center from waypoints
   const mapCenter = waypoints.length > 0
     ? [
         waypoints.reduce((s, w) => s + w.longitude, 0) / waypoints.length,
         waypoints.reduce((s, w) => s + w.latitude, 0) / waypoints.length,
       ]
-    : [-95, 38]; // fallback: center of US
+    : [-95, 38];
 
   const waypointGeoJSON: GeoJSON.FeatureCollection = {
     type: 'FeatureCollection',
     features: waypoints.map(wp => ({
       type: 'Feature',
       geometry: { type: 'Point', coordinates: [wp.longitude, wp.latitude] },
-      properties: { id: wp.id, name: wp.name, radius: wp.radius_meters },
+      properties: { id: wp.id, name: wp.name },
     })),
   };
 
@@ -81,39 +130,68 @@ export default function RideDetailScreen({ route, navigation }: Props) {
         <TouchableOpacity onPress={() => navigation.goBack()} style={styles.backButton}>
           <Text style={styles.backText}>← Rides</Text>
         </TouchableOpacity>
-        <View style={[styles.typeBadge, ride.type === 'rally' ? styles.badgeRally : styles.badgeExplorer]}>
-          <Text style={styles.typeBadgeText}>{ride.type}</Text>
+        <View style={[styles.typeBadge, initialRide.type === 'rally' ? styles.badgeRally : styles.badgeExplorer]}>
+          <Text style={styles.typeBadgeText}>{initialRide.type}</Text>
         </View>
       </View>
 
       <ScrollView contentContainerStyle={styles.scrollContent}>
 
-        {/* Ride title */}
+        {/* Featured image */}
+        {initialRide.featured_image ? (
+          <Image
+            source={{ uri: initialRide.featured_image }}
+            style={styles.featuredImage}
+            resizeMode="cover"
+          />
+        ) : null}
+
+        {/* Title + description */}
         <View style={styles.titleSection}>
-          <Text style={styles.rideName}>{ride.name}</Text>
-          <Text style={styles.dates}>
-            {formatDate(ride.start_date)} — {formatDate(ride.end_date)}
-          </Text>
-          {ride.description ? (
-            <Text style={styles.description}>{ride.description}</Text>
+          <Text style={styles.rideName}>{initialRide.name}</Text>
+          {initialRide.location ? (
+            <Text style={styles.locationText}>📍 {initialRide.location}</Text>
+          ) : null}
+          {initialRide.description ? (
+            <Text style={styles.description}>{initialRide.description}</Text>
           ) : null}
         </View>
 
-        {/* Join button */}
-        {!isJoined ? (
-          <TouchableOpacity
-            style={[styles.joinButton, joining && styles.joinButtonDisabled]}
-            onPress={handleJoin}
-            disabled={joining}
-          >
-            {joining
-              ? <ActivityIndicator color="#0f1117" />
-              : <Text style={styles.joinButtonText}>Join This Ride</Text>
-            }
-          </TouchableOpacity>
-        ) : (
-          <View style={styles.joinedBanner}>
-            <Text style={styles.joinedText}>You're registered for this ride</Text>
+        {/* Schedule card */}
+        <View style={styles.scheduleCard}>
+          <View style={styles.scheduleRow}>
+            <View style={styles.scheduleItem}>
+              <Text style={styles.scheduleLabel}>START</Text>
+              <Text style={styles.scheduleValue}>{formatDate(initialRide.start_date)}</Text>
+            </View>
+            <View style={styles.scheduleDivider} />
+            <View style={styles.scheduleItem}>
+              <Text style={styles.scheduleLabel}>END</Text>
+              <Text style={styles.scheduleValue}>{formatDate(initialRide.end_date)}</Text>
+            </View>
+          </View>
+        </View>
+
+        {/* Progress card — only when joined and there are waypoints */}
+        {isJoined && totalWaypoints > 0 && (
+          <View style={styles.progressCard}>
+            <View style={styles.progressStats}>
+              <View style={styles.statItem}>
+                <Text style={styles.statValue}>{hitCount}</Text>
+                <Text style={styles.statLabel}>Hits</Text>
+              </View>
+              <View style={styles.statItem}>
+                <Text style={styles.statValue}>{totalWaypoints}</Text>
+                <Text style={styles.statLabel}>Waypoints</Text>
+              </View>
+              <View style={styles.statItem}>
+                <Text style={[styles.statValue, styles.statPct]}>{completionPct}%</Text>
+                <Text style={styles.statLabel}>Complete</Text>
+              </View>
+            </View>
+            <View style={styles.progressTrack}>
+              <View style={[styles.progressFill, { width: `${completionPct}%` }]} />
+            </View>
           </View>
         )}
 
@@ -123,10 +201,56 @@ export default function RideDetailScreen({ route, navigation }: Props) {
           </View>
         ) : null}
 
-        {/* Waypoints Map */}
+        {/* Join / Leave */}
+        {!isJoined ? (
+          <TouchableOpacity
+            style={[styles.joinButton, joining && styles.buttonDisabled]}
+            onPress={handleJoin}
+            disabled={joining}
+          >
+            {joining
+              ? <ActivityIndicator color="#0f1117" />
+              : <Text style={styles.joinButtonText}>Join This Ride</Text>
+            }
+          </TouchableOpacity>
+        ) : (
+          <View style={styles.joinedRow}>
+            <View style={styles.joinedBadge}>
+              <Text style={styles.joinedText}>Joined</Text>
+            </View>
+            <TouchableOpacity
+              style={[styles.leaveButton, leaving && styles.buttonDisabled]}
+              onPress={confirmLeave}
+              disabled={leaving}
+            >
+              {leaving
+                ? <ActivityIndicator color="#fca5a5" size="small" />
+                : <Text style={styles.leaveButtonText}>Leave Ride</Text>
+              }
+            </TouchableOpacity>
+          </View>
+        )}
+
+        {/* Waypoints section */}
         <View style={styles.sectionHeader}>
           <Text style={styles.sectionTitle}>Waypoints</Text>
-          {!loading && <Text style={styles.waypointCount}>{waypoints.length} locations</Text>}
+          <View style={styles.sectionActions}>
+            {!loading && waypoints.length > 0 && (
+              <TouchableOpacity
+                style={[styles.gpxButton, downloading && styles.buttonDisabled]}
+                onPress={handleDownloadGpx}
+                disabled={downloading}
+              >
+                {downloading
+                  ? <ActivityIndicator color="#38bdf8" size="small" />
+                  : <Text style={styles.gpxButtonText}>⬇ GPX</Text>
+                }
+              </TouchableOpacity>
+            )}
+            {!loading && (
+              <Text style={styles.waypointCount}>{waypoints.length} locations</Text>
+            )}
+          </View>
         </View>
 
         {loading ? (
@@ -137,7 +261,7 @@ export default function RideDetailScreen({ route, navigation }: Props) {
           <View style={styles.mapContainer}>
             <Mapbox.MapView
               style={styles.map}
-              styleURL="mapbox://styles/mapbox/dark-v11"
+              styleURL="mapbox://styles/mapbox/streets-v12"
               logoEnabled={false}
               attributionEnabled={false}
               scaleBarEnabled={false}
@@ -147,7 +271,6 @@ export default function RideDetailScreen({ route, navigation }: Props) {
                 zoomLevel={waypoints.length === 1 ? 10 : 6}
                 animationMode="none"
               />
-
               {waypoints.map(wp => (
                 <Mapbox.PointAnnotation
                   key={String(wp.id)}
@@ -165,7 +288,10 @@ export default function RideDetailScreen({ route, navigation }: Props) {
         {!loading && waypoints.length > 0 && (
           <View style={styles.waypointList}>
             {waypoints.map((wp, index) => (
-              <View key={wp.id} style={styles.waypointRow}>
+              <View key={wp.id} style={[
+                styles.waypointRow,
+                index === waypoints.length - 1 && styles.waypointRowLast,
+              ]}>
                 <View style={styles.waypointNumber}>
                   <Text style={styles.waypointNumberText}>{index + 1}</Text>
                 </View>
@@ -176,7 +302,12 @@ export default function RideDetailScreen({ route, navigation }: Props) {
                   ) : null}
                   <Text style={styles.waypointGroup}>{wp.group_name}</Text>
                 </View>
-                <Text style={styles.waypointRadius}>{wp.radius_meters}m</Text>
+                <TouchableOpacity
+                  style={styles.directionsButton}
+                  onPress={() => openDirections(wp)}
+                >
+                  <Text style={styles.directionsText}>Directions</Text>
+                </TouchableOpacity>
               </View>
             ))}
           </View>
@@ -186,18 +317,18 @@ export default function RideDetailScreen({ route, navigation }: Props) {
           <Text style={styles.emptyText}>No waypoints configured for this ride.</Text>
         )}
 
-        {/* Action buttons — only if joined and waypoints loaded */}
+        {/* Action buttons — when joined */}
         {isJoined && !loading && waypoints.length > 0 && (
           <View style={styles.actionButtons}>
             <TouchableOpacity
               style={styles.submitButton}
-              onPress={() => navigation.navigate('SubmitVerification', { ride, waypoints })}
+              onPress={() => navigation.navigate('SubmitVerification', { ride: initialRide, waypoints })}
             >
               <Text style={styles.submitButtonText}>Submit Evidence</Text>
             </TouchableOpacity>
             <TouchableOpacity
               style={styles.progressButton}
-              onPress={() => navigation.navigate('MyProgress', { ride })}
+              onPress={() => navigation.navigate('MyProgress', { ride: initialRide })}
             >
               <Text style={styles.progressButtonText}>My Progress</Text>
             </TouchableOpacity>
@@ -210,10 +341,8 @@ export default function RideDetailScreen({ route, navigation }: Props) {
 }
 
 const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-    backgroundColor: '#0f1117',
-  },
+  container: { flex: 1, backgroundColor: '#0f1117' },
+
   header: {
     flexDirection: 'row',
     justifyContent: 'space-between',
@@ -223,18 +352,9 @@ const styles = StyleSheet.create({
     borderBottomWidth: 1,
     borderBottomColor: '#1a2030',
   },
-  backButton: {
-    paddingVertical: 4,
-  },
-  backText: {
-    color: '#38bdf8',
-    fontSize: 16,
-  },
-  typeBadge: {
-    borderRadius: 6,
-    paddingHorizontal: 10,
-    paddingVertical: 4,
-  },
+  backButton: { paddingVertical: 4 },
+  backText: { color: '#38bdf8', fontSize: 16 },
+  typeBadge: { borderRadius: 6, paddingHorizontal: 10, paddingVertical: 4 },
   badgeRally: { backgroundColor: '#1e3a5f' },
   badgeExplorer: { backgroundColor: '#1a3a2a' },
   typeBadgeText: {
@@ -244,72 +364,115 @@ const styles = StyleSheet.create({
     textTransform: 'uppercase',
     letterSpacing: 1,
   },
-  scrollContent: {
-    paddingBottom: 40,
-  },
-  titleSection: {
-    padding: 20,
-  },
-  rideName: {
-    color: '#f1f5f9',
-    fontSize: 26,
-    fontWeight: '700',
-    marginBottom: 6,
-  },
-  dates: {
-    color: '#475569',
-    fontSize: 14,
-    marginBottom: 10,
-  },
-  description: {
-    color: '#94a3b8',
-    fontSize: 15,
-    lineHeight: 22,
-  },
-  joinButton: {
-    backgroundColor: '#38bdf8',
-    marginHorizontal: 20,
+
+  scrollContent: { paddingBottom: 40 },
+
+  featuredImage: { width: '100%', height: 200 },
+
+  titleSection: { padding: 20, paddingBottom: 12 },
+  rideName: { color: '#f1f5f9', fontSize: 26, fontWeight: '700', marginBottom: 6 },
+  locationText: { color: '#64748b', fontSize: 14, marginBottom: 8 },
+  description: { color: '#94a3b8', fontSize: 15, lineHeight: 22 },
+
+  // Schedule
+  scheduleCard: {
+    marginHorizontal: 16,
+    backgroundColor: '#1a2030',
     borderRadius: 12,
-    paddingVertical: 16,
-    alignItems: 'center',
-    marginBottom: 16,
-  },
-  joinButtonDisabled: {
-    opacity: 0.6,
-  },
-  joinButtonText: {
-    color: '#0f1117',
-    fontSize: 16,
-    fontWeight: '700',
-  },
-  joinedBanner: {
-    backgroundColor: '#14532d',
-    marginHorizontal: 20,
-    borderRadius: 12,
-    paddingVertical: 14,
-    alignItems: 'center',
-    marginBottom: 16,
     borderWidth: 1,
-    borderColor: '#166534',
+    borderColor: '#2d3748',
+    padding: 16,
+    marginBottom: 12,
   },
-  joinedText: {
-    color: '#86efac',
-    fontSize: 15,
-    fontWeight: '600',
+  scheduleRow: { flexDirection: 'row', alignItems: 'center' },
+  scheduleItem: { flex: 1, alignItems: 'center' },
+  scheduleLabel: {
+    color: '#475569',
+    fontSize: 10,
+    fontWeight: '700',
+    letterSpacing: 1,
+    marginBottom: 4,
   },
+  scheduleValue: { color: '#f1f5f9', fontSize: 14, fontWeight: '600', textAlign: 'center' },
+  scheduleDivider: { width: 1, height: 36, backgroundColor: '#2d3748', marginHorizontal: 16 },
+
+  // Progress
+  progressCard: {
+    marginHorizontal: 16,
+    backgroundColor: '#1a2030',
+    borderRadius: 12,
+    borderWidth: 1,
+    borderColor: '#2d3748',
+    padding: 16,
+    marginBottom: 12,
+  },
+  progressStats: { flexDirection: 'row', justifyContent: 'space-around', marginBottom: 14 },
+  statItem: { alignItems: 'center' },
+  statValue: { color: '#f1f5f9', fontSize: 24, fontWeight: '700' },
+  statPct: { color: '#38bdf8' },
+  statLabel: { color: '#475569', fontSize: 12, marginTop: 2 },
+  progressTrack: {
+    height: 6,
+    backgroundColor: '#2d3748',
+    borderRadius: 3,
+    overflow: 'hidden',
+  },
+  progressFill: {
+    height: '100%',
+    backgroundColor: '#38bdf8',
+    borderRadius: 3,
+  },
+
   errorBox: {
     backgroundColor: '#450a0a',
-    marginHorizontal: 20,
+    marginHorizontal: 16,
     borderRadius: 8,
     padding: 12,
     marginBottom: 12,
     borderWidth: 1,
     borderColor: '#991b1b',
   },
-  errorText: {
-    color: '#fca5a5',
-    fontSize: 14,
+  errorText: { color: '#fca5a5', fontSize: 14 },
+
+  // Join / Leave
+  joinButton: {
+    backgroundColor: '#38bdf8',
+    marginHorizontal: 16,
+    borderRadius: 12,
+    paddingVertical: 16,
+    alignItems: 'center',
+    marginBottom: 16,
   },
+  joinButtonText: { color: '#0f1117', fontSize: 16, fontWeight: '700' },
+  joinedRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginHorizontal: 16,
+    marginBottom: 16,
+    gap: 12,
+  },
+  joinedBadge: {
+    flex: 1,
+    backgroundColor: '#14532d',
+    borderRadius: 12,
+    paddingVertical: 14,
+    alignItems: 'center',
+    borderWidth: 1,
+    borderColor: '#166534',
+  },
+  joinedText: { color: '#86efac', fontSize: 15, fontWeight: '600' },
+  leaveButton: {
+    borderRadius: 12,
+    paddingVertical: 14,
+    paddingHorizontal: 18,
+    borderWidth: 1,
+    borderColor: '#7f1d1d',
+    alignItems: 'center',
+  },
+  leaveButtonText: { color: '#fca5a5', fontSize: 14, fontWeight: '600' },
+  buttonDisabled: { opacity: 0.5 },
+
+  // Section header
   sectionHeader: {
     flexDirection: 'row',
     justifyContent: 'space-between',
@@ -318,15 +481,19 @@ const styles = StyleSheet.create({
     paddingTop: 8,
     paddingBottom: 12,
   },
-  sectionTitle: {
-    color: '#f1f5f9',
-    fontSize: 18,
-    fontWeight: '700',
+  sectionTitle: { color: '#f1f5f9', fontSize: 18, fontWeight: '700' },
+  sectionActions: { flexDirection: 'row', alignItems: 'center', gap: 12 },
+  gpxButton: {
+    borderRadius: 8,
+    paddingHorizontal: 12,
+    paddingVertical: 5,
+    borderWidth: 1,
+    borderColor: '#38bdf8',
   },
-  waypointCount: {
-    color: '#475569',
-    fontSize: 13,
-  },
+  gpxButtonText: { color: '#38bdf8', fontSize: 13, fontWeight: '600' },
+  waypointCount: { color: '#475569', fontSize: 13 },
+
+  // Map
   mapContainer: {
     marginHorizontal: 16,
     borderRadius: 12,
@@ -335,10 +502,7 @@ const styles = StyleSheet.create({
     borderColor: '#2d3748',
     marginBottom: 16,
   },
-  map: {
-    height: MAP_HEIGHT,
-    width: '100%',
-  },
+  map: { height: MAP_HEIGHT, width: '100%' },
   mapPlaceholder: {
     height: MAP_HEIGHT,
     marginHorizontal: 16,
@@ -354,8 +518,10 @@ const styles = StyleSheet.create({
     borderRadius: 7,
     backgroundColor: '#38bdf8',
     borderWidth: 2,
-    borderColor: '#0f1117',
+    borderColor: '#fff',
   },
+
+  // Waypoint list
   waypointList: {
     marginHorizontal: 16,
     borderRadius: 12,
@@ -371,6 +537,7 @@ const styles = StyleSheet.create({
     borderBottomWidth: 1,
     borderBottomColor: '#2d3748',
   },
+  waypointRowLast: { borderBottomWidth: 0 },
   waypointNumber: {
     width: 28,
     height: 28,
@@ -382,34 +549,21 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     borderColor: '#38bdf8',
   },
-  waypointNumberText: {
-    color: '#38bdf8',
-    fontSize: 12,
-    fontWeight: '700',
-  },
-  waypointInfo: {
-    flex: 1,
-  },
-  waypointName: {
-    color: '#f1f5f9',
-    fontSize: 15,
-    fontWeight: '600',
-  },
-  waypointDesc: {
-    color: '#64748b',
-    fontSize: 13,
-    marginTop: 2,
-  },
-  waypointGroup: {
-    color: '#475569',
-    fontSize: 12,
-    marginTop: 2,
-  },
-  waypointRadius: {
-    color: '#475569',
-    fontSize: 12,
+  waypointNumberText: { color: '#38bdf8', fontSize: 12, fontWeight: '700' },
+  waypointInfo: { flex: 1 },
+  waypointName: { color: '#f1f5f9', fontSize: 15, fontWeight: '600' },
+  waypointDesc: { color: '#64748b', fontSize: 13, marginTop: 2 },
+  waypointGroup: { color: '#475569', fontSize: 12, marginTop: 2 },
+  directionsButton: {
+    borderRadius: 8,
+    paddingHorizontal: 10,
+    paddingVertical: 6,
+    borderWidth: 1,
+    borderColor: '#2d3748',
     marginLeft: 8,
   },
+  directionsText: { color: '#38bdf8', fontSize: 12, fontWeight: '600' },
+
   emptyText: {
     color: '#475569',
     fontSize: 14,
@@ -417,33 +571,22 @@ const styles = StyleSheet.create({
     paddingHorizontal: 20,
     paddingTop: 8,
   },
-  actionButtons: {
-    marginHorizontal: 16,
-    marginTop: 20,
-    gap: 10,
-  },
+
+  // Action buttons
+  actionButtons: { marginHorizontal: 16, marginTop: 20, gap: 10 },
   submitButton: {
     backgroundColor: '#38bdf8',
     borderRadius: 12,
     paddingVertical: 16,
     alignItems: 'center',
   },
-  submitButtonText: {
-    color: '#0f1117',
-    fontSize: 16,
-    fontWeight: '700',
-  },
+  submitButtonText: { color: '#0f1117', fontSize: 16, fontWeight: '700' },
   progressButton: {
-    backgroundColor: 'transparent',
     borderRadius: 12,
     paddingVertical: 14,
     alignItems: 'center',
     borderWidth: 1,
     borderColor: '#38bdf8',
   },
-  progressButtonText: {
-    color: '#38bdf8',
-    fontSize: 16,
-    fontWeight: '600',
-  },
+  progressButtonText: { color: '#38bdf8', fontSize: 16, fontWeight: '600' },
 });

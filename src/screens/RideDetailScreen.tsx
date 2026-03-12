@@ -186,14 +186,22 @@ export default function RideDetailScreen({ route, navigation }: Props) {
           <Text style={styles.emptyText}>No waypoints configured for this ride.</Text>
         )}
 
-        {/* Submit Evidence button — only if joined and waypoints loaded */}
+        {/* Action buttons — only if joined and waypoints loaded */}
         {isJoined && !loading && waypoints.length > 0 && (
-          <TouchableOpacity
-            style={styles.submitButton}
-            onPress={() => navigation.navigate('SubmitVerification', { ride, waypoints })}
-          >
-            <Text style={styles.submitButtonText}>Submit Evidence</Text>
-          </TouchableOpacity>
+          <View style={styles.actionButtons}>
+            <TouchableOpacity
+              style={styles.submitButton}
+              onPress={() => navigation.navigate('SubmitVerification', { ride, waypoints })}
+            >
+              <Text style={styles.submitButtonText}>Submit Evidence</Text>
+            </TouchableOpacity>
+            <TouchableOpacity
+              style={styles.progressButton}
+              onPress={() => navigation.navigate('MyProgress', { ride })}
+            >
+              <Text style={styles.progressButtonText}>My Progress</Text>
+            </TouchableOpacity>
+          </View>
         )}
 
       </ScrollView>
@@ -409,10 +417,13 @@ const styles = StyleSheet.create({
     paddingHorizontal: 20,
     paddingTop: 8,
   },
-  submitButton: {
-    backgroundColor: '#38bdf8',
+  actionButtons: {
     marginHorizontal: 16,
     marginTop: 20,
+    gap: 10,
+  },
+  submitButton: {
+    backgroundColor: '#38bdf8',
     borderRadius: 12,
     paddingVertical: 16,
     alignItems: 'center',
@@ -421,5 +432,18 @@ const styles = StyleSheet.create({
     color: '#0f1117',
     fontSize: 16,
     fontWeight: '700',
+  },
+  progressButton: {
+    backgroundColor: 'transparent',
+    borderRadius: 12,
+    paddingVertical: 14,
+    alignItems: 'center',
+    borderWidth: 1,
+    borderColor: '#38bdf8',
+  },
+  progressButtonText: {
+    color: '#38bdf8',
+    fontSize: 16,
+    fontWeight: '600',
   },
 });

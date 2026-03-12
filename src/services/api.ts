@@ -1,6 +1,6 @@
 import AsyncStorage from '@react-native-async-storage/async-storage';
 
-const BASE_URL = 'https://mototracker.app/api/v1';
+const BASE_URL = 'https://app.mototracker.app/api/v1';
 
 async function getToken(): Promise<string | null> {
   return AsyncStorage.getItem('auth_token');

@@ -1,5 +1,3 @@
-const { withAndroid } = require('expo/config-plugins');
-
 module.exports = ({ config }) => {
   const mapboxToken = process.env.MAPBOX_TOKEN ?? '';
 

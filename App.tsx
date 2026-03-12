@@ -2,15 +2,19 @@ import React, { useState, useEffect } from 'react';
 import { ActivityIndicator, View } from 'react-native';
 import { StatusBar } from 'expo-status-bar';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
+import { NavigationContainer } from '@react-navigation/native';
+import { createNativeStackNavigator } from '@react-navigation/native-stack';
 import LoginScreen from './src/screens/LoginScreen';
 import RideListScreen from './src/screens/RideListScreen';
+import RideDetailScreen from './src/screens/RideDetailScreen';
 import { getStoredUser, AuthUser } from './src/services/auth';
-import { Ride } from './src/services/rides';
+import { RootStackParamList } from './src/types/navigation';
+
+const Stack = createNativeStackNavigator<RootStackParamList>();
 
 export default function App() {
-  const [user, setUser]         = useState<AuthUser | null>(null);
-  const [loading, setLoading]   = useState(true);
-  const [selectedRide, setSelectedRide] = useState<Ride | null>(null);
+  const [user, setUser]       = useState<AuthUser | null>(null);
+  const [loading, setLoading] = useState(true);
 
   useEffect(() => {
     getStoredUser().then((u) => {
@@ -40,7 +44,18 @@ export default function App() {
   return (
     <SafeAreaProvider>
       <StatusBar style="light" />
-      <RideListScreen onSelectRide={(ride) => setSelectedRide(ride)} />
+      <NavigationContainer>
+        <Stack.Navigator
+          screenOptions={{
+            headerShown: false,
+            contentStyle: { backgroundColor: '#0f1117' },
+            animation: 'slide_from_right',
+          }}
+        >
+          <Stack.Screen name="RideList" component={RideListScreen} />
+          <Stack.Screen name="RideDetail" component={RideDetailScreen} />
+        </Stack.Navigator>
+      </NavigationContainer>
     </SafeAreaProvider>
   );
 }

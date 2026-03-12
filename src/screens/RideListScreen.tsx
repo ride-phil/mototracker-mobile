@@ -8,13 +8,13 @@ import {
   ActivityIndicator,
   RefreshControl,
 } from 'react-native';
+import { NativeStackScreenProps } from '@react-navigation/native-stack';
 import { getRides, joinRide, Ride } from '../services/rides';
+import { RootStackParamList } from '../types/navigation';
 
-interface Props {
-  onSelectRide: (ride: Ride) => void;
-}
+type Props = NativeStackScreenProps<RootStackParamList, 'RideList'>;
 
-export default function RideListScreen({ onSelectRide }: Props) {
+export default function RideListScreen({ navigation }: Props) {
   const [rides, setRides]       = useState<Ride[]>([]);
   const [loading, setLoading]   = useState(true);
   const [refreshing, setRefreshing] = useState(false);
@@ -101,7 +101,7 @@ export default function RideListScreen({ onSelectRide }: Props) {
         renderItem={({ item }) => (
           <TouchableOpacity
             style={styles.card}
-            onPress={() => onSelectRide(item)}
+            onPress={() => navigation.navigate('RideDetail', { ride: item })}
             activeOpacity={0.8}
           >
             <View style={styles.cardHeader}>

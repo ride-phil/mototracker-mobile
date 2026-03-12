@@ -45,7 +45,7 @@ All routes under `/api/v1/`, protected by `auth:sanctum` except login.
 |---|---|---|
 | GET | `/api/v1/rides` | List active/joinable rides (rider-scoped) |
 | GET | `/api/v1/rides/{id}` | Ride detail (name, dates, type, description) |
-| POST | `/api/v1/rides/{id}/register` | Join a ride (create RideRegistration) |
+| POST | `/api/v1/rides/{id}/join` | Join a ride (create RideParticipant record) |
 | GET | `/api/v1/rides/{id}/waypoints` | Waypoints with lat/lng/radius for map display |
 | GET | `/api/v1/rides/{id}/progress` | Rider's RideWaypointHits + pending verifications |
 
@@ -99,7 +99,7 @@ No business logic lives in the mobile app or API controllers.
 | Expo Go installed on Android device | Done |
 | EAS CLI installed + `eas init` run | Pending |
 | Expo tunnel dependency installed | Pending |
-| Laravel Sanctum confirmed installed | Pending |
+| Laravel Sanctum installed | Pending — not yet installed |
 | `/api/v1/` routes scaffolded in Laravel | Pending |
 
 ---
@@ -133,8 +133,8 @@ APK build (when ready to share):
 
 ## Remaining Questions / Decisions
 
-- [ ] Confirm Sanctum is installed in the Laravel app
+- [x] Sanctum NOT installed — must add `laravel/sanctum` before any API work
+- [x] Join model is `RideParticipant` (fields: ride_id, user_id, status, joined_at)
 - [ ] Decide on API base URL strategy (env var, config file)
-- [ ] Confirm `RideRegistration` model/flow for joining rides (check existing implementation)
 - [ ] Map library choice for waypoint display: `react-native-maps` (Google Maps) vs Mapbox
       (web app uses Mapbox — may want visual consistency)

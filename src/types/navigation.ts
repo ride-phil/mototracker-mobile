@@ -5,4 +5,5 @@ export type RootStackParamList = {
   RideDetail: { ride: Ride };
   SubmitVerification: { ride: Ride; waypoints: Waypoint[] };
   MyProgress: { ride: Ride };
+  Profile: undefined;
 };

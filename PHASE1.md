@@ -136,5 +136,5 @@ APK build (when ready to share):
 - [x] Sanctum NOT installed — must add `laravel/sanctum` before any API work
 - [x] Join model is `RideParticipant` (fields: ride_id, user_id, status, joined_at)
 - [ ] Decide on API base URL strategy (env var, config file)
-- [ ] Map library choice for waypoint display: `react-native-maps` (Google Maps) vs Mapbox
-      (web app uses Mapbox — may want visual consistency)
+- [x] Map library: `@rnmapbox/maps` — reuses existing Mapbox token from web app
+      Note: requires native build (EAS dev build APK) — won't run in Expo Go

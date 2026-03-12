@@ -25,6 +25,12 @@
     },
     "web": {
       "favicon": "./assets/favicon.png"
-    }
+    },
+    "extra": {
+      "eas": {
+        "projectId": "6cba8956-3e71-4dbf-bb8e-1a9b4dd8fab9"
+      }
+    },
+    "owner": "mototracker"
   }
 }

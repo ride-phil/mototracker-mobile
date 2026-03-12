@@ -1,5 +1,6 @@
 module.exports = ({ config }) => {
-  const mapboxToken = process.env.MAPBOX_TOKEN ?? '';
+  const mapboxDownloadToken = process.env.MAPBOX_DOWNLOAD_TOKEN ?? '';
+  const mapboxPublicToken   = process.env.MAPBOX_TOKEN ?? '';
 
   return {
     ...config,
@@ -7,13 +8,13 @@ module.exports = ({ config }) => {
       [
         '@rnmapbox/maps',
         {
-          RNMapboxMapsDownloadToken: mapboxToken,
+          RNMapboxMapsDownloadToken: mapboxDownloadToken,
         },
       ],
     ],
     extra: {
       ...config.extra,
-      mapboxToken,
+      mapboxToken: mapboxPublicToken,
     },
   };
 };

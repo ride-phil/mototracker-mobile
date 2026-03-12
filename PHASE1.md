@@ -97,8 +97,8 @@ No business logic lives in the mobile app or API controllers.
 | GitHub repo (`ride-phil/mototracker-mobile`) | Done |
 | EAS account created + linked to GitHub | Done |
 | Expo Go installed on Android device | Done |
-| EAS CLI installed + `eas init` run | Pending |
-| Expo tunnel dependency installed | Pending |
+| EAS CLI installed + `eas init` run | Done — project ID: 6cba8956 |
+| Expo tunnel dependency installed | Done |
 | Laravel Sanctum installed | Done — v4.3.1, personal_access_tokens migrated |
 | `/api/v1/` routes scaffolded in Laravel | Done — 10 routes, 3 controllers |
 

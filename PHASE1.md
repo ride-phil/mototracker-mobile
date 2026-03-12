@@ -99,8 +99,8 @@ No business logic lives in the mobile app or API controllers.
 | Expo Go installed on Android device | Done |
 | EAS CLI installed + `eas init` run | Pending |
 | Expo tunnel dependency installed | Pending |
-| Laravel Sanctum installed | Pending — not yet installed |
-| `/api/v1/` routes scaffolded in Laravel | Pending |
+| Laravel Sanctum installed | Done — v4.3.1, personal_access_tokens migrated |
+| `/api/v1/` routes scaffolded in Laravel | Done — 10 routes, 3 controllers |
 
 ---
 

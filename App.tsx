@@ -19,6 +19,7 @@ import ActivityScreen from './src/screens/ActivityScreen';
 import EvidenceDetailScreen from './src/screens/EvidenceDetailScreen';
 import AppDrawer from './src/components/AppDrawer';
 import { getStoredUser, AuthUser } from './src/services/auth';
+import { registerPushToken } from './src/services/notifications';
 import { ActivityStackParamList, AuthStackParamList, ProfileStackParamList, RidesStackParamList, TabParamList } from './src/types/navigation';
 
 const AuthStack      = createNativeStackNavigator<AuthStackParamList>();
@@ -115,6 +116,12 @@ export default function App() {
       setLoading(false);
     });
   }, []);
+
+  useEffect(() => {
+    if (user) {
+      registerPushToken();
+    }
+  }, [user]);
 
   if (loading) {
     return (

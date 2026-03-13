@@ -9,8 +9,12 @@ import {
   TouchableOpacity,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
+import { NativeStackScreenProps } from '@react-navigation/native-stack';
 import { api } from '../services/api';
 import HamburgerButton from '../components/HamburgerButton';
+import { ActivityStackParamList } from '../types/navigation';
+
+type Props = NativeStackScreenProps<ActivityStackParamList, 'ActivityList'>;
 
 interface Verification {
   id: number;
@@ -40,7 +44,7 @@ function formatDate(iso: string | null): string {
   return new Date(iso).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' });
 }
 
-export default function ActivityScreen() {
+export default function ActivityScreen({ navigation }: Props) {
   const [verifications, setVerifications] = useState<Verification[]>([]);
   const [loading, setLoading]             = useState(true);
   const [refreshing, setRefreshing]       = useState(false);
@@ -104,23 +108,30 @@ export default function ActivityScreen() {
         renderItem={({ item }) => {
           const statusStyle = STATUS_STYLE[item.status] ?? STATUS_STYLE.pending;
           return (
-            <View style={styles.row}>
+            <TouchableOpacity
+              style={styles.row}
+              activeOpacity={0.75}
+              onPress={() => navigation.navigate('EvidenceDetail', { verificationId: item.id, type: item.type })}
+            >
               <Text style={styles.typeIcon}>{TYPE_ICON[item.type] ?? '📋'}</Text>
               <View style={styles.rowBody}>
                 <Text style={styles.waypointName} numberOfLines={1}>
-                  {item.waypoint_name ?? 'Unknown waypoint'}
+                  {item.waypoint_name ?? (item.type === 'gpx' ? 'GPX Upload' : 'Photo Upload')}
                 </Text>
                 <Text style={styles.rideName} numberOfLines={1}>
                   {item.ride_name ?? 'Unknown ride'}
                 </Text>
                 <Text style={styles.date}>{formatDate(item.submitted_at)}</Text>
               </View>
-              <View style={[styles.statusBadge, { backgroundColor: statusStyle.bg }]}>
-                <Text style={[styles.statusText, { color: statusStyle.text }]}>
-                  {statusStyle.label}
-                </Text>
+              <View style={styles.rowRight}>
+                <View style={[styles.statusBadge, { backgroundColor: statusStyle.bg }]}>
+                  <Text style={[styles.statusText, { color: statusStyle.text }]}>
+                    {statusStyle.label}
+                  </Text>
+                </View>
+                <Text style={styles.chevron}>›</Text>
               </View>
-            </View>
+            </TouchableOpacity>
           );
         }}
         ItemSeparatorComponent={() => <View style={styles.separator} />}
@@ -142,6 +153,9 @@ const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: '#0f1117' },
   centered: { flex: 1, justifyContent: 'center', alignItems: 'center', padding: 24 },
   header: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
     paddingHorizontal: 16,
     paddingVertical: 14,
     borderBottomWidth: 1,
@@ -165,13 +179,14 @@ const styles = StyleSheet.create({
   waypointName: { color: '#f1f5f9', fontSize: 15, fontWeight: '600', marginBottom: 2 },
   rideName: { color: '#64748b', fontSize: 13, marginBottom: 4 },
   date: { color: '#475569', fontSize: 12 },
+  rowRight: { alignItems: 'flex-end', gap: 6 },
   statusBadge: {
     borderRadius: 6,
     paddingHorizontal: 8,
     paddingVertical: 4,
-    alignSelf: 'flex-start',
   },
   statusText: { fontSize: 11, fontWeight: '700' },
+  chevron: { color: '#475569', fontSize: 18 },
   separator: { height: 10 },
   errorText: { color: '#fca5a5', fontSize: 15, textAlign: 'center', marginBottom: 16 },
   retryButton: {

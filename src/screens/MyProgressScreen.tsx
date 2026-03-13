@@ -72,13 +72,27 @@ export default function MyProgressScreen({ route, navigation }: Props) {
   const pendingCount = progress?.pending.length ?? 0;
 
   // Group hits by waypoint so we can detect combined (multi-method) hits
-  const hitsByWaypoint = (progress?.hits ?? []).reduce<Record<number, { name: string | null; hit_at: string; methods: string[] }>>(
+  const hitsByWaypoint = (progress?.hits ?? []).reduce<Record<number, {
+    name: string | null;
+    hit_at: string;
+    methods: string[];
+    verification_ids: Array<{ id: number; type: 'photo' | 'gpx' }>;
+  }>>(
     (acc, h) => {
       if (!acc[h.waypoint_id]) {
-        acc[h.waypoint_id] = { name: h.waypoint_name, hit_at: h.hit_at, methods: [] };
+        acc[h.waypoint_id] = { name: h.waypoint_name, hit_at: h.hit_at, methods: [], verification_ids: [] };
       }
       if (h.method && !acc[h.waypoint_id].methods.includes(h.method)) {
         acc[h.waypoint_id].methods.push(h.method);
+      }
+      if (h.source_verification_id && (h.method === 'photo' || h.method === 'gpx')) {
+        const already = acc[h.waypoint_id].verification_ids.some(v => v.id === h.source_verification_id);
+        if (!already) {
+          acc[h.waypoint_id].verification_ids.push({
+            id: h.source_verification_id,
+            type: h.method as 'photo' | 'gpx',
+          });
+        }
       }
       return acc;
     },
@@ -175,8 +189,9 @@ export default function MyProgressScreen({ route, navigation }: Props) {
                 const combined = hit.methods.length > 1;
                 const method   = combined ? 'combined' : (hit.methods[0] ?? null);
                 const ms       = METHOD_STYLE[method ?? ''] ?? METHOD_STYLE.default;
-                return (
-                  <View key={hit.waypoint_id} style={styles.hitRow}>
+                const firstVerif = hit.verification_ids[0] ?? null;
+                const inner = (
+                  <>
                     <View style={[styles.hitStripe, { backgroundColor: ms.stripe }]} />
                     <Text style={styles.hitCheck}>✓</Text>
                     <View style={styles.hitInfo}>
@@ -186,6 +201,21 @@ export default function MyProgressScreen({ route, navigation }: Props) {
                     <View style={[styles.methodBadge, { backgroundColor: ms.labelBg }]}>
                       <Text style={[styles.methodBadgeText, { color: ms.labelText }]}>{ms.label}</Text>
                     </View>
+                    {firstVerif ? <Text style={styles.hitChevron}>›</Text> : null}
+                  </>
+                );
+                return firstVerif ? (
+                  <TouchableOpacity
+                    key={hit.waypoint_id}
+                    style={styles.hitRow}
+                    activeOpacity={0.75}
+                    onPress={() => navigation.navigate('EvidenceDetail', { verificationId: firstVerif.id, type: firstVerif.type })}
+                  >
+                    {inner}
+                  </TouchableOpacity>
+                ) : (
+                  <View key={hit.waypoint_id} style={styles.hitRow}>
+                    {inner}
                   </View>
                 );
               })}
@@ -200,19 +230,27 @@ export default function MyProgressScreen({ route, navigation }: Props) {
                 {progress!.pending.map(v => {
                   const colors = STATUS_COLORS[v.status] ?? STATUS_COLORS.pending;
                   return (
-                    <View key={v.id} style={styles.pendingRow}>
+                    <TouchableOpacity
+                      key={v.id}
+                      style={styles.pendingRow}
+                      activeOpacity={0.75}
+                      onPress={() => navigation.navigate('EvidenceDetail', { verificationId: v.id, type: v.type as 'photo' | 'gpx' })}
+                    >
                       <View style={styles.pendingInfo}>
                         <Text style={styles.pendingType}>
                           {v.type === 'photo' ? '📷' : '📍'} {v.type.toUpperCase()}
                         </Text>
                         <Text style={styles.pendingDate}>{formatDate(v.created_at)}</Text>
                       </View>
-                      <View style={[styles.statusBadge, { backgroundColor: colors.bg, borderColor: colors.border }]}>
-                        <Text style={[styles.statusText, { color: colors.text }]}>
-                          {v.status.replace('_', ' ')}
-                        </Text>
+                      <View style={styles.pendingRight}>
+                        <View style={[styles.statusBadge, { backgroundColor: colors.bg, borderColor: colors.border }]}>
+                          <Text style={[styles.statusText, { color: colors.text }]}>
+                            {v.status.replace('_', ' ')}
+                          </Text>
+                        </View>
+                        <Text style={styles.pendingChevron}>›</Text>
                       </View>
-                    </View>
+                    </TouchableOpacity>
                   );
                 })}
               </View>
@@ -419,6 +457,7 @@ const styles = StyleSheet.create({
     fontWeight: '700',
     letterSpacing: 0.5,
   },
+  hitChevron: { color: '#475569', fontSize: 18, marginLeft: 6 },
   pendingRow: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -428,6 +467,8 @@ const styles = StyleSheet.create({
     borderBottomColor: '#2d3748',
   },
   pendingInfo: { flex: 1 },
+  pendingRight: { flexDirection: 'row', alignItems: 'center', gap: 6 },
+  pendingChevron: { color: '#475569', fontSize: 18 },
   pendingType: {
     color: '#94a3b8',
     fontSize: 14,

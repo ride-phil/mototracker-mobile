@@ -14,6 +14,14 @@ export type RidesStackParamList = {
   RideDetail: { ride: Ride };
   SubmitVerification: { ride: Ride };
   MyProgress: { ride: Ride };
+  RideDiagnostics: { rideId: number };
+  EvidenceDetail: { verificationId: number; type: 'photo' | 'gpx' };
+};
+
+// Activity stack (nested inside Activity tab)
+export type ActivityStackParamList = {
+  ActivityList: undefined;
+  EvidenceDetail: { verificationId: number; type: 'photo' | 'gpx' };
 };
 
 // Profile stack (nested inside Profile tab)

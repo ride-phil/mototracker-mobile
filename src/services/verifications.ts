@@ -1,4 +1,5 @@
 import AsyncStorage from '@react-native-async-storage/async-storage';
+import { api } from './api';
 
 const BASE_URL = 'https://app.mototracker.app/api/v1';
 
@@ -6,6 +7,33 @@ export interface VerificationResult {
   verification_id: number | null;
   matched_waypoints: number;
   new_hits: number;
+}
+
+export interface WaypointHitDetail {
+  waypoint_id: number;
+  name: string;
+  lat: number;
+  lng: number;
+  radius_meters: number;
+  hit_at: string | null;
+  verification_method: string | null;
+  credited: boolean;
+}
+
+export interface VerificationDetail {
+  id: number;
+  type: 'photo' | 'gpx';
+  status: string;
+  submitted_at: string | null;
+  original_filename: string | null;
+  photo_url: string | null;
+  geo_json: object | null;
+  waypoint_hits: WaypointHitDetail[];
+}
+
+export async function getVerificationDetail(id: number): Promise<VerificationDetail> {
+  const res = await api.get<{ data: VerificationDetail }>(`/verifications/${id}`);
+  return res.data;
 }
 
 export async function submitVerification(

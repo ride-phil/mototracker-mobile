@@ -5,6 +5,7 @@ export interface WaypointHit {
   waypoint_name: string | null;
   hit_at: string;
   method: string | null;
+  source_verification_id: number | null;
 }
 
 export interface PendingVerification {

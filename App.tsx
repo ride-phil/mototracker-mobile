@@ -16,29 +16,41 @@ import ProfileScreen from './src/screens/ProfileScreen';
 import EditProfileScreen from './src/screens/EditProfileScreen';
 import OnboardingScreen from './src/screens/OnboardingScreen';
 import ActivityScreen from './src/screens/ActivityScreen';
+import EvidenceDetailScreen from './src/screens/EvidenceDetailScreen';
 import AppDrawer from './src/components/AppDrawer';
 import { getStoredUser, AuthUser } from './src/services/auth';
-import { AuthStackParamList, ProfileStackParamList, RidesStackParamList, TabParamList } from './src/types/navigation';
+import { ActivityStackParamList, AuthStackParamList, ProfileStackParamList, RidesStackParamList, TabParamList } from './src/types/navigation';
 
-const AuthStack    = createNativeStackNavigator<AuthStackParamList>();
-const RidesStack   = createNativeStackNavigator<RidesStackParamList>();
-const ProfileStack = createNativeStackNavigator<ProfileStackParamList>();
-const Tab          = createBottomTabNavigator<TabParamList>();
+const AuthStack      = createNativeStackNavigator<AuthStackParamList>();
+const RidesStack     = createNativeStackNavigator<RidesStackParamList>();
+const ActivityStack  = createNativeStackNavigator<ActivityStackParamList>();
+const ProfileStack   = createNativeStackNavigator<ProfileStackParamList>();
+const Tab            = createBottomTabNavigator<TabParamList>();
+
+const stackOpts = {
+  headerShown: false,
+  contentStyle: { backgroundColor: '#0f1117' },
+  animation: 'slide_from_right' as const,
+};
 
 function RidesNavigator() {
   return (
-    <RidesStack.Navigator
-      screenOptions={{
-        headerShown: false,
-        contentStyle: { backgroundColor: '#0f1117' },
-        animation: 'slide_from_right',
-      }}
-    >
+    <RidesStack.Navigator screenOptions={stackOpts}>
       <RidesStack.Screen name="RideList" component={RideListScreen} />
       <RidesStack.Screen name="RideDetail" component={RideDetailScreen} />
       <RidesStack.Screen name="SubmitVerification" component={SubmitVerificationScreen} />
       <RidesStack.Screen name="MyProgress" component={MyProgressScreen} />
+      <RidesStack.Screen name="EvidenceDetail" component={EvidenceDetailScreen} />
     </RidesStack.Navigator>
+  );
+}
+
+function ActivityNavigator() {
+  return (
+    <ActivityStack.Navigator screenOptions={stackOpts}>
+      <ActivityStack.Screen name="ActivityList" component={ActivityScreen} />
+      <ActivityStack.Screen name="EvidenceDetail" component={EvidenceDetailScreen} />
+    </ActivityStack.Navigator>
   );
 }
 
@@ -68,7 +80,7 @@ function MainTabs({ onLogout }: { onLogout: () => void }) {
       />
       <Tab.Screen
         name="Activity"
-        component={ActivityScreen}
+        component={ActivityNavigator}
         options={{ tabBarIcon: () => <TabIcon emoji="📋" /> }}
       />
       <Tab.Screen

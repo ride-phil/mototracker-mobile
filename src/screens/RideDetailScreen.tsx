@@ -255,7 +255,7 @@ export default function RideDetailScreen({ route, navigation }: Props) {
           <View style={styles.actionButtons}>
             <TouchableOpacity
               style={styles.submitButton}
-              onPress={() => navigation.navigate('SubmitVerification', { ride: ride, waypoints })}
+              onPress={() => navigation.navigate('SubmitVerification', { ride: ride })}
             >
               <Text style={styles.submitButtonText}>Submit Evidence</Text>
             </TouchableOpacity>

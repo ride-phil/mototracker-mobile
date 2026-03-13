@@ -1,4 +1,4 @@
-import { Ride, Waypoint } from '../services/rides';
+import { Ride } from '../services/rides';
 
 // Bottom tab param list
 export type TabParamList = {
@@ -12,7 +12,7 @@ export type TabParamList = {
 export type RidesStackParamList = {
   RideList: undefined;
   RideDetail: { ride: Ride };
-  SubmitVerification: { ride: Ride; waypoints: Waypoint[] };
+  SubmitVerification: { ride: Ride };
   MyProgress: { ride: Ride };
 };
 

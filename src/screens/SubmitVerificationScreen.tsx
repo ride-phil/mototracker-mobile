@@ -14,8 +14,7 @@ import { NativeStackScreenProps } from '@react-navigation/native-stack';
 import * as ImagePicker from 'expo-image-picker';
 import * as DocumentPicker from 'expo-document-picker';
 import { RidesStackParamList } from '../types/navigation';
-import { submitVerification } from '../services/verifications';
-import { Waypoint } from '../services/rides';
+import { submitVerification, VerificationResult } from '../services/verifications';
 
 type Props = NativeStackScreenProps<RidesStackParamList, 'SubmitVerification'>;
 
@@ -29,16 +28,13 @@ interface SelectedFile {
 }
 
 export default function SubmitVerificationScreen({ route, navigation }: Props) {
-  const { ride, waypoints } = route.params;
+  const { ride } = route.params;
 
-  const [selectedWaypoint, setSelectedWaypoint] = useState<Waypoint | null>(
-    waypoints.length === 1 ? waypoints[0] : null
-  );
-  const [submitType, setSubmitType]   = useState<SubmitType>('photo');
-  const [file, setFile]               = useState<SelectedFile | null>(null);
-  const [submitting, setSubmitting]   = useState(false);
-  const [result, setResult]           = useState<{ status: string; reason: string } | null>(null);
-  const [error, setError]             = useState<string | null>(null);
+  const [submitType, setSubmitType] = useState<SubmitType>('photo');
+  const [file, setFile]             = useState<SelectedFile | null>(null);
+  const [submitting, setSubmitting] = useState(false);
+  const [result, setResult]         = useState<VerificationResult | null>(null);
+  const [error, setError]           = useState<string | null>(null);
 
   async function pickPhoto() {
     const permission = await ImagePicker.requestMediaLibraryPermissionsAsync();
@@ -113,22 +109,14 @@ export default function SubmitVerificationScreen({ route, navigation }: Props) {
   }
 
   async function handleSubmit() {
-    if (!selectedWaypoint) { setError('Please select a waypoint.'); return; }
     if (!file) { setError('Please select a file to submit.'); return; }
 
     setSubmitting(true);
     setError(null);
 
     try {
-      const res = await submitVerification(
-        ride.id,
-        selectedWaypoint.id,
-        submitType,
-        file.uri,
-        file.name,
-        file.mimeType
-      );
-      setResult({ status: res.status, reason: res.reason });
+      const res = await submitVerification(submitType, file.uri, file.name, file.mimeType);
+      setResult(res);
     } catch (e: any) {
       setError(e.message || 'Submission failed. Please try again.');
     } finally {
@@ -138,17 +126,29 @@ export default function SubmitVerificationScreen({ route, navigation }: Props) {
 
   // Success/result screen
   if (result) {
-    const accepted = result.status === 'accepted';
+    const hasHits = result.new_hits > 0;
+    const hasMatches = result.matched_waypoints > 0;
+
     return (
       <SafeAreaView style={styles.container} edges={['top']}>
         <View style={styles.resultContainer}>
-          <Text style={[styles.resultIcon, accepted ? styles.iconAccepted : styles.iconPending]}>
-            {accepted ? '✓' : '⏳'}
+          <Text style={[styles.resultIcon, hasHits ? styles.iconAccepted : styles.iconPending]}>
+            {hasHits ? '✓' : hasMatches ? '⏳' : '📋'}
           </Text>
           <Text style={styles.resultTitle}>
-            {accepted ? 'Waypoint Hit!' : 'Submitted for Review'}
+            {hasHits
+              ? `${result.new_hits} Waypoint${result.new_hits !== 1 ? 's' : ''} Hit!`
+              : hasMatches
+              ? 'Submitted for Review'
+              : 'Upload Received'}
           </Text>
-          <Text style={styles.resultReason}>{result.reason}</Text>
+          <Text style={styles.resultReason}>
+            {hasHits
+              ? `${result.matched_waypoints} waypoint${result.matched_waypoints !== 1 ? 's' : ''} matched — ${result.new_hits} new hit${result.new_hits !== 1 ? 's' : ''} credited.`
+              : hasMatches
+              ? `${result.matched_waypoints} waypoint${result.matched_waypoints !== 1 ? 's' : ''} matched and submitted for manual review.`
+              : 'No eligible waypoints were matched. Check that you are joined to an active ride and your evidence covers a waypoint location.'}
+          </Text>
           <TouchableOpacity
             style={styles.doneButton}
             onPress={() => navigation.goBack()}
@@ -175,32 +175,6 @@ export default function SubmitVerificationScreen({ route, navigation }: Props) {
       <ScrollView contentContainerStyle={styles.scrollContent}>
 
         <Text style={styles.rideName}>{ride.name}</Text>
-
-        {/* Waypoint selector */}
-        <Text style={styles.label}>Waypoint</Text>
-        <View style={styles.waypointList}>
-          {waypoints.map(wp => (
-            <TouchableOpacity
-              key={wp.id}
-              style={[
-                styles.waypointOption,
-                selectedWaypoint?.id === wp.id && styles.waypointSelected,
-              ]}
-              onPress={() => setSelectedWaypoint(wp)}
-            >
-              <View style={[
-                styles.radio,
-                selectedWaypoint?.id === wp.id && styles.radioSelected,
-              ]} />
-              <Text style={[
-                styles.waypointOptionText,
-                selectedWaypoint?.id === wp.id && styles.waypointOptionTextSelected,
-              ]}>
-                {wp.name}
-              </Text>
-            </TouchableOpacity>
-          ))}
-        </View>
 
         {/* Type toggle */}
         <Text style={styles.label}>Evidence Type</Text>
@@ -265,9 +239,9 @@ export default function SubmitVerificationScreen({ route, navigation }: Props) {
 
         {/* Submit */}
         <TouchableOpacity
-          style={[styles.submitButton, (!file || !selectedWaypoint || submitting) && styles.submitDisabled]}
+          style={[styles.submitButton, (!file || submitting) && styles.submitDisabled]}
           onPress={handleSubmit}
-          disabled={!file || !selectedWaypoint || submitting}
+          disabled={!file || submitting}
         >
           {submitting
             ? <ActivityIndicator color="#0f1117" />
@@ -312,44 +286,6 @@ const styles = StyleSheet.create({
     textTransform: 'uppercase',
     letterSpacing: 1,
     marginBottom: 10,
-  },
-  waypointList: {
-    marginBottom: 24,
-    borderRadius: 12,
-    backgroundColor: '#1a2030',
-    borderWidth: 1,
-    borderColor: '#2d3748',
-    overflow: 'hidden',
-  },
-  waypointOption: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    padding: 14,
-    borderBottomWidth: 1,
-    borderBottomColor: '#2d3748',
-  },
-  waypointSelected: {
-    backgroundColor: '#0c2340',
-  },
-  radio: {
-    width: 18,
-    height: 18,
-    borderRadius: 9,
-    borderWidth: 2,
-    borderColor: '#475569',
-    marginRight: 12,
-  },
-  radioSelected: {
-    borderColor: '#38bdf8',
-    backgroundColor: '#38bdf8',
-  },
-  waypointOptionText: {
-    color: '#94a3b8',
-    fontSize: 15,
-  },
-  waypointOptionTextSelected: {
-    color: '#f1f5f9',
-    fontWeight: '600',
   },
   typeToggle: {
     flexDirection: 'row',

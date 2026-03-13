@@ -3,15 +3,12 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 const BASE_URL = 'https://app.mototracker.app/api/v1';
 
 export interface VerificationResult {
-  verification_id: number;
-  status: string;
-  hit_id: number | null;
-  reason: string;
+  verification_id: number | null;
+  matched_waypoints: number;
+  new_hits: number;
 }
 
 export async function submitVerification(
-  rideId: number,
-  waypointId: number,
   type: 'photo' | 'gpx',
   fileUri: string,
   fileName: string,
@@ -20,8 +17,6 @@ export async function submitVerification(
   const token = await AsyncStorage.getItem('auth_token');
 
   const form = new FormData();
-  form.append('ride_id', String(rideId));
-  form.append('waypoint_id', String(waypointId));
   form.append('type', type);
   form.append('file', {
     uri: fileUri,

@@ -42,3 +42,31 @@ export async function getRideRankings(rideId: number): Promise<RideRankings> {
   const res = await api.get<{ data: RideRankings }>(`/leaderboard/${rideId}`);
   return res.data;
 }
+
+export interface RiderProfile {
+  user_id: number;
+  name: string;
+  username: string | null;
+  avatar_url: string | null;
+  bio: string | null;
+  location: string | null;
+  bike: string | null;
+  riding_style: string | null;
+  riding_club: string | null;
+  facebook_url: string | null;
+  instagram_url: string | null;
+  tiktok_url: string | null;
+  website_url: string | null;
+  stats: {
+    total_rides: number;
+    waypoint_credits: number;
+    gps_credits: number;
+    accepted_photo_submissions: number;
+    accepted_gpx_submissions: number;
+  };
+}
+
+export async function getRiderProfile(userId: number): Promise<RiderProfile> {
+  const res = await api.get<{ data: RiderProfile }>(`/riders/${userId}`);
+  return res.data;
+}

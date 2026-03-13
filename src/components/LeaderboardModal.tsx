@@ -9,14 +9,17 @@ import {
   ActivityIndicator,
   RefreshControl,
   Image,
+  Linking,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import {
   getLeaderboardRides,
   getRideRankings,
+  getRiderProfile,
   LeaderboardRide,
   LeaderboardRider,
   RideRankings,
+  RiderProfile,
 } from '../services/leaderboard';
 
 const RANK_COLOR: Record<number, string> = { 1: '#fbbf24', 2: '#94a3b8', 3: '#b45309' };
@@ -71,11 +74,11 @@ function RideRow({ ride, onPress }: { ride: LeaderboardRide; onPress: () => void
 
 // ─── Rankings View ────────────────────────────────────────────────────────────
 
-function RiderRow({ rider, rank }: { rider: LeaderboardRider; rank: number }) {
+function RiderRow({ rider, rank, onPress }: { rider: LeaderboardRider; rank: number; onPress: () => void }) {
   const initials = (rider.name ?? '?').split(' ').map(w => w[0]).join('').slice(0, 2).toUpperCase();
   const rankColor = RANK_COLOR[rank] ?? '#475569';
   return (
-    <View style={[styles.riderRow, rider.is_me && styles.riderRowMe]}>
+    <TouchableOpacity style={[styles.riderRow, rider.is_me && styles.riderRowMe]} onPress={onPress} activeOpacity={0.75}>
       <View style={styles.rankCol}>
         <View style={[styles.avatarRing, { borderColor: rankColor }]}>
           {rider.avatar_url
@@ -107,7 +110,7 @@ function RiderRow({ rider, rank }: { rider: LeaderboardRider; rank: number }) {
         <Text style={styles.riderPts}>pts</Text>
         <Text style={styles.riderPct}>{rider.pct}%</Text>
       </View>
-    </View>
+    </TouchableOpacity>
   );
 }
 
@@ -118,6 +121,7 @@ function RankingsView({
   refreshing,
   onRefresh,
   error,
+  onSelectRider,
 }: {
   ride: LeaderboardRide;
   rankings: RideRankings | null;
@@ -125,6 +129,7 @@ function RankingsView({
   refreshing: boolean;
   onRefresh: () => void;
   error: string | null;
+  onSelectRider: (rider: LeaderboardRider) => void;
 }) {
   if (loading) {
     return (
@@ -173,10 +178,137 @@ function RankingsView({
       ) : (
         <View style={styles.riderList}>
           {rankings?.riders.map((rider, i) => (
-            <RiderRow key={rider.user_id} rider={rider} rank={i + 1} />
+            <RiderRow key={rider.user_id} rider={rider} rank={i + 1} onPress={() => onSelectRider(rider)} />
           ))}
         </View>
       )}
+    </ScrollView>
+  );
+}
+
+// ─── Rider Profile View ───────────────────────────────────────────────────────
+
+function ProfileStat({ label, value }: { label: string; value: number }) {
+  return (
+    <View style={styles.profileStatBox}>
+      <Text style={styles.profileStatNum}>{value}</Text>
+      <Text style={styles.profileStatLabel}>{label}</Text>
+    </View>
+  );
+}
+
+function SocialLink({ label, url }: { label: string; url: string }) {
+  return (
+    <TouchableOpacity onPress={() => Linking.openURL(url)} style={styles.socialLink}>
+      <Text style={styles.socialLinkText}>{label}</Text>
+    </TouchableOpacity>
+  );
+}
+
+function RiderProfileView({
+  profile,
+  loading,
+  error,
+  onRetry,
+}: {
+  profile: RiderProfile | null;
+  loading: boolean;
+  error: string | null;
+  onRetry: () => void;
+}) {
+  if (loading) {
+    return (
+      <View style={styles.centered}>
+        <ActivityIndicator color="#38bdf8" size="large" />
+      </View>
+    );
+  }
+
+  if (error) {
+    return (
+      <View style={styles.centered}>
+        <Text style={styles.errorText}>{error}</Text>
+        <TouchableOpacity onPress={onRetry} style={styles.retryButton}>
+          <Text style={styles.retryText}>Retry</Text>
+        </TouchableOpacity>
+      </View>
+    );
+  }
+
+  if (!profile) return null;
+
+  const initials = (profile.name ?? '?').split(' ').map(w => w[0]).join('').slice(0, 2).toUpperCase();
+
+  return (
+    <ScrollView contentContainerStyle={styles.scrollContent}>
+      {/* Avatar + name */}
+      <View style={styles.profileHeader}>
+        <View style={styles.profileAvatarRing}>
+          {profile.avatar_url
+            ? <Image source={{ uri: profile.avatar_url }} style={styles.profileAvatarImg} />
+            : <View style={styles.profileAvatarFallback}>
+                <Text style={styles.profileAvatarInitials}>{initials}</Text>
+              </View>
+          }
+        </View>
+        <Text style={styles.profileName}>{profile.name}</Text>
+        {profile.username ? (
+          <Text style={styles.profileUsername}>@{profile.username}</Text>
+        ) : null}
+        {profile.location ? (
+          <Text style={styles.profileLocation}>{profile.location}</Text>
+        ) : null}
+      </View>
+
+      {/* Bio */}
+      {profile.bio ? (
+        <View style={styles.profileBioCard}>
+          <Text style={styles.profileBio}>{profile.bio}</Text>
+        </View>
+      ) : null}
+
+      {/* Bike / style / club */}
+      {(profile.bike || profile.riding_style || profile.riding_club) ? (
+        <View style={styles.profileInfoCard}>
+          {profile.bike ? (
+            <View style={styles.profileInfoRow}>
+              <Text style={styles.profileInfoLabel}>Bike</Text>
+              <Text style={styles.profileInfoValue}>{profile.bike}</Text>
+            </View>
+          ) : null}
+          {profile.riding_style ? (
+            <View style={styles.profileInfoRow}>
+              <Text style={styles.profileInfoLabel}>Style</Text>
+              <Text style={styles.profileInfoValue}>{profile.riding_style}</Text>
+            </View>
+          ) : null}
+          {profile.riding_club ? (
+            <View style={styles.profileInfoRow}>
+              <Text style={styles.profileInfoLabel}>Club</Text>
+              <Text style={styles.profileInfoValue}>{profile.riding_club}</Text>
+            </View>
+          ) : null}
+        </View>
+      ) : null}
+
+      {/* Stats */}
+      <View style={styles.profileStatsGrid}>
+        <ProfileStat label="Rides" value={profile.stats.total_rides} />
+        <ProfileStat label="Waypoints" value={profile.stats.waypoint_credits} />
+        <ProfileStat label="GPS" value={profile.stats.gps_credits} />
+        <ProfileStat label="Photos" value={profile.stats.accepted_photo_submissions} />
+        <ProfileStat label="GPX" value={profile.stats.accepted_gpx_submissions} />
+      </View>
+
+      {/* Social links */}
+      {(profile.facebook_url || profile.instagram_url || profile.tiktok_url || profile.website_url) ? (
+        <View style={styles.socialLinks}>
+          {profile.facebook_url ? <SocialLink label="Facebook" url={profile.facebook_url} /> : null}
+          {profile.instagram_url ? <SocialLink label="Instagram" url={profile.instagram_url} /> : null}
+          {profile.tiktok_url ? <SocialLink label="TikTok" url={profile.tiktok_url} /> : null}
+          {profile.website_url ? <SocialLink label="Website" url={profile.website_url} /> : null}
+        </View>
+      ) : null}
     </ScrollView>
   );
 }
@@ -199,6 +331,11 @@ export default function LeaderboardModal({ visible, onClose }: Props) {
   const [rankLoading, setRankLoading]       = useState(false);
   const [rankRefreshing, setRankRefreshing] = useState(false);
   const [rankError, setRankError]           = useState<string | null>(null);
+
+  const [selectedRider, setSelectedRider]   = useState<LeaderboardRider | null>(null);
+  const [profile, setProfile]               = useState<RiderProfile | null>(null);
+  const [profileLoading, setProfileLoading] = useState(false);
+  const [profileError, setProfileError]     = useState<string | null>(null);
 
   const fetchRides = useCallback(async (isRefresh = false) => {
     if (isRefresh) setRefreshing(true);
@@ -228,24 +365,57 @@ export default function LeaderboardModal({ visible, onClose }: Props) {
     }
   }, []);
 
+  const fetchProfile = useCallback(async (userId: number) => {
+    setProfileLoading(true);
+    setProfileError(null);
+    try {
+      setProfile(await getRiderProfile(userId));
+    } catch (e: any) {
+      setProfileError(e.message || 'Failed to load rider profile.');
+    } finally {
+      setProfileLoading(false);
+    }
+  }, []);
+
   function handleOpen() {
     setSelectedRide(null);
+    setSelectedRider(null);
     setRankings(null);
+    setProfile(null);
     fetchRides();
   }
 
   function handleSelectRide(ride: LeaderboardRide) {
     setSelectedRide(ride);
+    setSelectedRider(null);
     setRankings(null);
+    setProfile(null);
     fetchRankings(ride);
   }
 
-  function handleBack() {
-    setSelectedRide(null);
-    setRankings(null);
+  function handleSelectRider(rider: LeaderboardRider) {
+    setSelectedRider(rider);
+    setProfile(null);
+    fetchProfile(rider.user_id);
   }
 
-  const title = selectedRide ? selectedRide.name : 'Leaderboard';
+  function handleBack() {
+    if (selectedRider) {
+      setSelectedRider(null);
+      setProfile(null);
+    } else {
+      setSelectedRide(null);
+      setRankings(null);
+    }
+  }
+
+  const title = selectedRider
+    ? (selectedRider.name ?? 'Rider')
+    : selectedRide
+    ? selectedRide.name
+    : 'Leaderboard';
+
+  const showBack = !!(selectedRide || selectedRider);
 
   return (
     <Modal
@@ -258,14 +428,21 @@ export default function LeaderboardModal({ visible, onClose }: Props) {
 
         {/* Header */}
         <View style={styles.header}>
-          <TouchableOpacity onPress={selectedRide ? handleBack : onClose} style={styles.headerBack}>
-            <Text style={styles.headerBackText}>{selectedRide ? '← Back' : '✕'}</Text>
+          <TouchableOpacity onPress={showBack ? handleBack : onClose} style={styles.headerBack}>
+            <Text style={styles.headerBackText}>{showBack ? '← Back' : '✕'}</Text>
           </TouchableOpacity>
           <Text style={styles.headerTitle} numberOfLines={1}>{title}</Text>
           <View style={styles.headerSpacer} />
         </View>
 
-        {selectedRide ? (
+        {selectedRider ? (
+          <RiderProfileView
+            profile={profile}
+            loading={profileLoading}
+            error={profileError}
+            onRetry={() => fetchProfile(selectedRider.user_id)}
+          />
+        ) : selectedRide ? (
           <RankingsView
             ride={selectedRide}
             rankings={rankings}
@@ -273,6 +450,7 @@ export default function LeaderboardModal({ visible, onClose }: Props) {
             refreshing={rankRefreshing}
             onRefresh={() => fetchRankings(selectedRide, true)}
             error={rankError}
+            onSelectRider={handleSelectRider}
           />
         ) : loading ? (
           <View style={styles.centered}>
@@ -434,4 +612,92 @@ const styles = StyleSheet.create({
     borderColor: '#2d3748',
   },
   retryText: { color: '#38bdf8', fontWeight: '600' },
+
+  // Rider profile
+  profileHeader: { alignItems: 'center', paddingVertical: 24 },
+  profileAvatarRing: {
+    width: 88,
+    height: 88,
+    borderRadius: 44,
+    borderWidth: 3,
+    borderColor: '#38bdf8',
+    overflow: 'hidden',
+    marginBottom: 14,
+  },
+  profileAvatarImg: { width: '100%', height: '100%' },
+  profileAvatarFallback: {
+    flex: 1,
+    backgroundColor: '#1a2030',
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  profileAvatarInitials: { color: '#94a3b8', fontSize: 28, fontWeight: '700' },
+  profileName: { color: '#f1f5f9', fontSize: 22, fontWeight: '700', marginBottom: 4 },
+  profileUsername: { color: '#475569', fontSize: 14, marginBottom: 4 },
+  profileLocation: { color: '#64748b', fontSize: 13 },
+
+  profileBioCard: {
+    backgroundColor: '#1a2030',
+    borderRadius: 12,
+    borderWidth: 1,
+    borderColor: '#2d3748',
+    padding: 16,
+    marginBottom: 12,
+  },
+  profileBio: { color: '#94a3b8', fontSize: 14, lineHeight: 21 },
+
+  profileInfoCard: {
+    backgroundColor: '#1a2030',
+    borderRadius: 12,
+    borderWidth: 1,
+    borderColor: '#2d3748',
+    padding: 16,
+    marginBottom: 12,
+  },
+  profileInfoRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    paddingVertical: 6,
+    borderBottomWidth: 1,
+    borderBottomColor: '#2d3748',
+  },
+  profileInfoLabel: { color: '#475569', fontSize: 13 },
+  profileInfoValue: { color: '#f1f5f9', fontSize: 13, fontWeight: '500', maxWidth: '65%', textAlign: 'right' },
+
+  profileStatsGrid: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    backgroundColor: '#1a2030',
+    borderRadius: 12,
+    borderWidth: 1,
+    borderColor: '#2d3748',
+    marginBottom: 12,
+    overflow: 'hidden',
+  },
+  profileStatBox: {
+    width: '33.33%',
+    alignItems: 'center',
+    paddingVertical: 16,
+    borderBottomWidth: 1,
+    borderRightWidth: 1,
+    borderColor: '#2d3748',
+  },
+  profileStatNum: { color: '#38bdf8', fontSize: 22, fontWeight: '700' },
+  profileStatLabel: { color: '#475569', fontSize: 11, marginTop: 2 },
+
+  socialLinks: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: 8,
+    marginBottom: 12,
+  },
+  socialLink: {
+    backgroundColor: '#1a2030',
+    borderRadius: 8,
+    borderWidth: 1,
+    borderColor: '#2d3748',
+    paddingHorizontal: 14,
+    paddingVertical: 8,
+  },
+  socialLinkText: { color: '#38bdf8', fontSize: 13, fontWeight: '600' },
 });

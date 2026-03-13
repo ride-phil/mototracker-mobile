@@ -163,14 +163,14 @@ export default function MyProgressScreen({ route, navigation }: Props) {
             <View style={styles.pointsHeader}>
               <Text style={styles.pointsLabel}>RIDE POINTS</Text>
               <Text style={styles.pointsValue}>
-                <Text style={styles.pointsCurrent}>{groupedHits.length}</Text>
-                <Text style={styles.pointsMax}> of {ride.total_waypoints} Max</Text>
+                <Text style={styles.pointsCurrent}>{ride.earned_points}</Text>
+                <Text style={styles.pointsMax}> of {ride.max_points} pts</Text>
               </Text>
             </View>
             <View style={styles.pointsTrack}>
               <View style={[
                 styles.pointsFill,
-                { width: ride.total_waypoints > 0 ? `${ride.completion_pct}%` : '0%' },
+                { width: ride.max_points > 0 ? `${Math.min(100, Math.round((ride.earned_points / ride.max_points) * 100))}%` : '0%' },
               ]} />
             </View>
           </View>

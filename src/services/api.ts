@@ -31,14 +31,17 @@ async function request<T>(
   const json = await res.json();
 
   if (!res.ok) {
-    throw new Error(json.message || 'Request failed');
+    const err: any = new Error(json.message || 'Request failed');
+    err.errors = json.errors;
+    throw err;
   }
 
   return json;
 }
 
 export const api = {
-  get:    <T>(path: string)              => request<T>('GET',    path),
+  get:    <T>(path: string)               => request<T>('GET',    path),
   post:   <T>(path: string, body: object) => request<T>('POST',   path, body),
-  delete: <T>(path: string)              => request<T>('DELETE', path),
+  put:    <T>(path: string, body: object) => request<T>('PUT',    path, body),
+  delete: <T>(path: string)               => request<T>('DELETE', path),
 };

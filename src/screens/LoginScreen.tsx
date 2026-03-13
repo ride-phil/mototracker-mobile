@@ -8,15 +8,16 @@ import {
   ActivityIndicator,
   KeyboardAvoidingView,
   Platform,
-  Image,
 } from 'react-native';
+import { NativeStackScreenProps } from '@react-navigation/native-stack';
+import { AuthStackParamList } from '../types/navigation';
 import { login } from '../services/auth';
 
-interface Props {
+type Props = NativeStackScreenProps<AuthStackParamList, 'Login'> & {
   onLoginSuccess: () => void;
-}
+};
 
-export default function LoginScreen({ onLoginSuccess }: Props) {
+export default function LoginScreen({ navigation, onLoginSuccess }: Props) {
   const [email, setEmail]       = useState('');
   const [password, setPassword] = useState('');
   const [loading, setLoading]   = useState(false);
@@ -76,6 +77,10 @@ export default function LoginScreen({ onLoginSuccess }: Props) {
           onChangeText={setPassword}
         />
 
+        <TouchableOpacity onPress={() => navigation.navigate('ForgotPassword')} style={styles.forgotRow}>
+          <Text style={styles.forgotText}>Forgot password?</Text>
+        </TouchableOpacity>
+
         <TouchableOpacity
           style={[styles.button, loading && styles.buttonDisabled]}
           onPress={handleLogin}
@@ -85,6 +90,10 @@ export default function LoginScreen({ onLoginSuccess }: Props) {
             ? <ActivityIndicator color="#fff" />
             : <Text style={styles.buttonText}>Sign In</Text>
           }
+        </TouchableOpacity>
+
+        <TouchableOpacity onPress={() => navigation.navigate('Register')} style={styles.registerRow}>
+          <Text style={styles.registerText}>New rider? <Text style={styles.registerLink}>Create account</Text></Text>
         </TouchableOpacity>
 
       </View>
@@ -128,21 +137,20 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     borderColor: '#2d3748',
   },
+  forgotRow: { alignItems: 'flex-end', marginBottom: 16, marginTop: -4 },
+  forgotText: { color: '#38bdf8', fontSize: 13 },
   button: {
     backgroundColor: '#38bdf8',
     borderRadius: 10,
     paddingVertical: 15,
     alignItems: 'center',
-    marginTop: 8,
+    marginBottom: 20,
   },
-  buttonDisabled: {
-    opacity: 0.6,
-  },
-  buttonText: {
-    color: '#0f1117',
-    fontSize: 16,
-    fontWeight: '700',
-  },
+  buttonDisabled: { opacity: 0.6 },
+  buttonText: { color: '#0f1117', fontSize: 16, fontWeight: '700' },
+  registerRow: { alignItems: 'center' },
+  registerText: { color: '#64748b', fontSize: 14 },
+  registerLink: { color: '#38bdf8', fontWeight: '600' },
   errorBox: {
     backgroundColor: '#450a0a',
     borderRadius: 8,
@@ -151,8 +159,5 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     borderColor: '#991b1b',
   },
-  errorText: {
-    color: '#fca5a5',
-    fontSize: 14,
-  },
+  errorText: { color: '#fca5a5', fontSize: 14 },
 });

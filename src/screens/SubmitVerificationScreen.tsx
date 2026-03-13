@@ -13,11 +13,11 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { NativeStackScreenProps } from '@react-navigation/native-stack';
 import * as ImagePicker from 'expo-image-picker';
 import * as DocumentPicker from 'expo-document-picker';
-import { RootStackParamList } from '../types/navigation';
+import { RidesStackParamList } from '../types/navigation';
 import { submitVerification } from '../services/verifications';
 import { Waypoint } from '../services/rides';
 
-type Props = NativeStackScreenProps<RootStackParamList, 'SubmitVerification'>;
+type Props = NativeStackScreenProps<RidesStackParamList, 'SubmitVerification'>;
 
 type SubmitType = 'photo' | 'gpx';
 

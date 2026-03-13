@@ -11,10 +11,19 @@ import {
 } from 'react-native';
 import { NativeStackScreenProps } from '@react-navigation/native-stack';
 import { getRides, joinRide, Ride } from '../services/rides';
-import { RootStackParamList } from '../types/navigation';
-import AppHeader from '../components/AppHeader';
+import { RidesStackParamList } from '../types/navigation';
+import HamburgerButton from '../components/HamburgerButton';
+import { SafeAreaView } from 'react-native-safe-area-context';
 
-type Props = NativeStackScreenProps<RootStackParamList, 'RideList'>;
+type Props = NativeStackScreenProps<RidesStackParamList, 'RideList'>;
+
+type Filter = 'all' | 'joined' | 'active';
+
+const FILTERS: { key: Filter; label: string }[] = [
+  { key: 'all',    label: 'All' },
+  { key: 'joined', label: 'Joined' },
+  { key: 'active', label: 'Active' },
+];
 
 const STATUS_STYLE: Record<string, { bg: string; text: string }> = {
   active:  { bg: '#14532d', text: '#86efac' },
@@ -24,6 +33,7 @@ const STATUS_STYLE: Record<string, { bg: string; text: string }> = {
 
 export default function RideListScreen({ navigation }: Props) {
   const [rides, setRides]           = useState<Ride[]>([]);
+  const [filter, setFilter]         = useState<Filter>('joined');
   const [loading, setLoading]       = useState(true);
   const [refreshing, setRefreshing] = useState(false);
   const [error, setError]           = useState<string | null>(null);
@@ -45,6 +55,12 @@ export default function RideListScreen({ navigation }: Props) {
   }, []);
 
   useEffect(() => { fetchRides(); }, [fetchRides]);
+
+  const filteredRides = rides.filter(r => {
+    if (filter === 'joined') return r.is_joined;
+    if (filter === 'active') return r.status === 'active';
+    return true;
+  });
 
   async function handleJoin(ride: Ride) {
     setJoining(ride.id);
@@ -83,19 +99,38 @@ export default function RideListScreen({ navigation }: Props) {
   }
 
   return (
-    <View style={styles.container}>
-      <AppHeader title="Rides" navigation={navigation} />
-
+    <SafeAreaView style={styles.container} edges={['top']}>
+      <View style={styles.screenHeader}>
+        <Text style={styles.screenHeaderTitle}>Rides</Text>
+        <HamburgerButton />
+      </View>
+      <View style={styles.filterBar}>
+        {FILTERS.map(f => (
+          <TouchableOpacity
+            key={f.key}
+            style={[styles.filterTab, filter === f.key && styles.filterTabActive]}
+            onPress={() => setFilter(f.key)}
+          >
+            <Text style={[styles.filterTabText, filter === f.key && styles.filterTabTextActive]}>
+              {f.label}
+            </Text>
+          </TouchableOpacity>
+        ))}
+      </View>
       <FlatList
-        data={rides}
+        data={filteredRides}
         keyExtractor={item => String(item.id)}
-        contentContainerStyle={rides.length === 0 ? styles.emptyContainer : styles.listContent}
+        contentContainerStyle={filteredRides.length === 0 ? styles.emptyContainer : styles.listContent}
         refreshControl={
           <RefreshControl refreshing={refreshing} onRefresh={() => fetchRides(true)} tintColor="#38bdf8" />
         }
         ListEmptyComponent={
           <View style={styles.centered}>
-            <Text style={styles.emptyText}>No active rides available.</Text>
+            <Text style={styles.emptyText}>
+              {filter === 'joined' ? 'You haven\'t joined any rides yet.' :
+               filter === 'active' ? 'No active rides available.' :
+               'No rides available.'}
+            </Text>
           </View>
         }
         renderItem={({ item }) => {
@@ -124,7 +159,7 @@ export default function RideListScreen({ navigation }: Props) {
                 <View style={styles.cardHeader}>
                   <Text style={styles.rideName} numberOfLines={1}>{item.name}</Text>
                   <View style={[styles.badge, item.type === 'rally' ? styles.badgeRally : styles.badgeExplorer]}>
-                    <Text style={styles.badgeText}>{item.type}</Text>
+                    <Text style={[styles.badgeText, item.type === 'rally' ? styles.badgeTextRally : styles.badgeTextExplorer]}>{item.type}</Text>
                   </View>
                 </View>
 
@@ -140,10 +175,12 @@ export default function RideListScreen({ navigation }: Props) {
                   ) : null}
                 </View>
 
-                {/* Dates */}
-                <Text style={styles.dateText}>
-                  {formatDate(item.start_date)} — {formatDate(item.end_date)}
-                </Text>
+                {/* Dates — rally only */}
+                {item.type === 'rally' && (
+                  <Text style={styles.dateText}>
+                    {formatDate(item.start_date)} — {formatDate(item.end_date)}
+                  </Text>
+                )}
 
                 {/* Completion bar — only if joined */}
                 {item.is_joined && item.total_waypoints > 0 && (
@@ -154,6 +191,9 @@ export default function RideListScreen({ navigation }: Props) {
                       </Text>
                       <Text style={styles.progressPct}>{item.completion_pct}%</Text>
                     </View>
+                    <Text style={styles.pointsLabel}>
+                      {item.earned_points} pts earned of {item.max_points} maximum
+                    </Text>
                     <View style={styles.progressTrack}>
                       <View style={[styles.progressFill, { width: `${item.completion_pct}%` }]} />
                     </View>
@@ -178,22 +218,69 @@ export default function RideListScreen({ navigation }: Props) {
                       }
                     </TouchableOpacity>
                   )}
-                  <Text style={styles.detailsLink}>View details →</Text>
+                  {item.is_joined ? (
+                    <View style={styles.footerLinks}>
+                      <TouchableOpacity onPress={e => { e.stopPropagation?.(); navigation.navigate('MyProgress', { ride: item }); }}>
+                        <Text style={styles.progressLink}>My Progress →</Text>
+                      </TouchableOpacity>
+                      <Text style={styles.detailsLink}>Details →</Text>
+                    </View>
+                  ) : (
+                    <Text style={styles.detailsLink}>View details →</Text>
+                  )}
                 </View>
               </View>
             </TouchableOpacity>
           );
         }}
       />
-    </View>
+    </SafeAreaView>
   );
 }
 
 const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: '#0f1117' },
+  screenHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    paddingHorizontal: 16,
+    paddingVertical: 14,
+    borderBottomWidth: 1,
+    borderBottomColor: '#1a2030',
+  },
+  screenHeaderTitle: { color: '#f1f5f9', fontSize: 22, fontWeight: '700' },
   centered: { flex: 1, justifyContent: 'center', alignItems: 'center', padding: 24 },
   emptyContainer: { flexGrow: 1, justifyContent: 'center', alignItems: 'center' },
   listContent: { padding: 16 },
+  filterBar: {
+    flexDirection: 'row',
+    paddingHorizontal: 16,
+    paddingVertical: 10,
+    gap: 8,
+    borderBottomWidth: 1,
+    borderBottomColor: '#1a2030',
+  },
+  filterTab: {
+    paddingHorizontal: 16,
+    paddingVertical: 7,
+    borderRadius: 20,
+    backgroundColor: '#1a2030',
+    borderWidth: 1,
+    borderColor: '#2d3748',
+  },
+  filterTabActive: {
+    backgroundColor: '#0c2d48',
+    borderColor: '#38bdf8',
+  },
+  filterTabText: {
+    color: '#64748b',
+    fontSize: 13,
+    fontWeight: '600',
+  },
+  filterTabTextActive: {
+    color: '#38bdf8',
+  },
   card: {
     backgroundColor: '#1a2030',
     borderRadius: 14,
@@ -229,15 +316,17 @@ const styles = StyleSheet.create({
     marginRight: 8,
   },
   badge: { borderRadius: 6, paddingHorizontal: 8, paddingVertical: 3 },
-  badgeRally: { backgroundColor: '#1e3a5f' },
-  badgeExplorer: { backgroundColor: '#1a3a2a' },
+  badgeRally: { backgroundColor: '#1d4ed8' },
+  badgeExplorer: { backgroundColor: '#15803d' },
   badgeText: {
-    color: '#94a3b8',
     fontSize: 11,
-    fontWeight: '600',
+    fontWeight: '700',
     textTransform: 'uppercase',
     letterSpacing: 1,
   },
+  badgeTextRally: { color: '#bfdbfe' },
+  badgeTextExplorer: { color: '#bbf7d0' },
+  pointsLabel: { color: '#38bdf8', fontSize: 12, marginBottom: 6 },
   metaRow: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -294,6 +383,8 @@ const styles = StyleSheet.create({
     borderColor: '#166534',
   },
   joinedText: { color: '#86efac', fontWeight: '600', fontSize: 14 },
+  footerLinks: { flexDirection: 'row', alignItems: 'center', gap: 16 },
+  progressLink: { color: '#38bdf8', fontSize: 13, fontWeight: '700' },
   detailsLink: { color: '#38bdf8', fontSize: 13 },
   errorText: { color: '#fca5a5', fontSize: 15, textAlign: 'center', marginBottom: 16 },
   retryButton: {

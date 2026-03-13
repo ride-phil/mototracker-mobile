@@ -21,6 +21,25 @@ export async function login(email: string, password: string): Promise<LoginRespo
   return res;
 }
 
+export interface RegisterData {
+  name: string;
+  email: string;
+  password: string;
+  password_confirmation: string;
+  invite_code?: string;
+}
+
+export async function register(data: RegisterData): Promise<LoginResponse> {
+  const res = await api.post<LoginResponse>('/auth/register', data);
+  await AsyncStorage.setItem('auth_token', res.token);
+  await AsyncStorage.setItem('auth_user', JSON.stringify(res.user));
+  return res;
+}
+
+export async function forgotPassword(email: string): Promise<void> {
+  await api.post('/auth/forgot-password', { email });
+}
+
 export async function logout(): Promise<void> {
   try {
     await api.post('/auth/logout', {});

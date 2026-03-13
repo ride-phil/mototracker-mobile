@@ -10,17 +10,14 @@ import {
   Platform,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import { NativeStackScreenProps } from '@react-navigation/native-stack';
 import * as Clipboard from 'expo-clipboard';
 import { getOnboardingStatus, createGpsAccount, createDevice, OnboardingStatus } from '../services/onboarding';
-import { RootStackParamList } from '../types/navigation';
-
-type Props = NativeStackScreenProps<RootStackParamList, 'Onboarding'>;
+import HamburgerButton from '../components/HamburgerButton';
 
 const TRACCAR_CLIENT_ANDROID = 'https://play.google.com/store/apps/details?id=org.traccar.client';
 const TRACCAR_CLIENT_IOS     = 'https://apps.apple.com/app/traccar-client/id843156974';
 
-export default function OnboardingScreen({ navigation }: Props) {
+export default function OnboardingScreen() {
   const [status, setStatus]       = useState<OnboardingStatus | null>(null);
   const [loading, setLoading]     = useState(true);
   const [error, setError]         = useState<string | null>(null);
@@ -96,7 +93,7 @@ export default function OnboardingScreen({ navigation }: Props) {
   if (loading) {
     return (
       <SafeAreaView style={styles.container} edges={['top']}>
-        <Header onBack={() => navigation.goBack()} />
+        <Header />
         <View style={styles.centered}>
           <ActivityIndicator color="#38bdf8" size="large" />
         </View>
@@ -107,7 +104,7 @@ export default function OnboardingScreen({ navigation }: Props) {
   if (error && !status) {
     return (
       <SafeAreaView style={styles.container} edges={['top']}>
-        <Header onBack={() => navigation.goBack()} />
+        <Header />
         <View style={styles.centered}>
           <Text style={styles.errorText}>{error}</Text>
           <TouchableOpacity style={styles.retryButton} onPress={() => fetchStatus()}>
@@ -122,7 +119,7 @@ export default function OnboardingScreen({ navigation }: Props) {
 
   return (
     <SafeAreaView style={styles.container} edges={['top']}>
-      <Header onBack={() => navigation.goBack()} />
+      <Header />
 
       <ScrollView contentContainerStyle={styles.scrollContent}>
 
@@ -299,14 +296,11 @@ export default function OnboardingScreen({ navigation }: Props) {
 
 // ── Sub-components ─────────────────────────────────────────────────────────
 
-function Header({ onBack }: { onBack: () => void }) {
+function Header() {
   return (
     <View style={styles.header}>
-      <TouchableOpacity onPress={onBack} style={styles.backButton}>
-        <Text style={styles.backText}>← Back</Text>
-      </TouchableOpacity>
       <Text style={styles.headerTitle}>GPS Setup</Text>
-      <View style={{ width: 60 }} />
+      <HamburgerButton />
     </View>
   );
 }
@@ -399,8 +393,6 @@ const styles = StyleSheet.create({
     borderBottomWidth: 1,
     borderBottomColor: '#1a2030',
   },
-  backButton: { paddingVertical: 4, width: 60 },
-  backText: { color: '#38bdf8', fontSize: 16 },
   headerTitle: { color: '#f1f5f9', fontSize: 17, fontWeight: '600' },
 
   scrollContent: { padding: 16, paddingBottom: 48 },

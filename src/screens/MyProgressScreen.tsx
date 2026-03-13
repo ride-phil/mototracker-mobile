@@ -10,10 +10,19 @@ import {
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { NativeStackScreenProps } from '@react-navigation/native-stack';
-import { RootStackParamList } from '../types/navigation';
+import { RidesStackParamList } from '../types/navigation';
 import { getRideProgress, RideProgress } from '../services/progress';
+import { getWaypoints, Waypoint } from '../services/rides';
 
-type Props = NativeStackScreenProps<RootStackParamList, 'MyProgress'>;
+type Props = NativeStackScreenProps<RidesStackParamList, 'MyProgress'>;
+
+const METHOD_STYLE: Record<string, { stripe: string; label: string; labelBg: string; labelText: string }> = {
+  photo:    { stripe: '#2563eb', label: 'PHOTO',    labelBg: '#0c1f33', labelText: '#93c5fd' },
+  gpx:      { stripe: '#7c3aed', label: 'GPX',      labelBg: '#1a1030', labelText: '#c4b5fd' },
+  gps:      { stripe: '#0891b2', label: 'GPS',      labelBg: '#051a24', labelText: '#67e8f9' },
+  combined: { stripe: '#b45309', label: 'COMBINED', labelBg: '#1a1000', labelText: '#fcd34d' },
+  default:  { stripe: '#166534', label: 'VERIFIED', labelBg: '#0a1a0f', labelText: '#86efac' },
+};
 
 const STATUS_COLORS: Record<string, { bg: string; text: string; border: string }> = {
   pending:      { bg: '#1c1a0a', text: '#fbbf24', border: '#854d0e' },
@@ -25,10 +34,11 @@ const STATUS_COLORS: Record<string, { bg: string; text: string; border: string }
 export default function MyProgressScreen({ route, navigation }: Props) {
   const { ride } = route.params;
 
-  const [progress, setProgress]   = useState<RideProgress | null>(null);
-  const [loading, setLoading]     = useState(true);
+  const [progress, setProgress]     = useState<RideProgress | null>(null);
+  const [waypoints, setWaypoints]   = useState<Waypoint[]>([]);
+  const [loading, setLoading]       = useState(true);
   const [refreshing, setRefreshing] = useState(false);
-  const [error, setError]         = useState<string | null>(null);
+  const [error, setError]           = useState<string | null>(null);
 
   const fetchProgress = useCallback(async (isRefresh = false) => {
     if (isRefresh) setRefreshing(true);
@@ -36,8 +46,12 @@ export default function MyProgressScreen({ route, navigation }: Props) {
     setError(null);
 
     try {
-      const data = await getRideProgress(ride.id);
+      const [data, wps] = await Promise.all([
+        getRideProgress(ride.id),
+        getWaypoints(ride.id),
+      ]);
       setProgress(data);
+      setWaypoints(wps);
     } catch (e: any) {
       setError(e.message || 'Failed to load progress.');
     } finally {
@@ -55,8 +69,25 @@ export default function MyProgressScreen({ route, navigation }: Props) {
     });
   }
 
-  const hitCount     = progress?.hits.length ?? 0;
   const pendingCount = progress?.pending.length ?? 0;
+
+  // Group hits by waypoint so we can detect combined (multi-method) hits
+  const hitsByWaypoint = (progress?.hits ?? []).reduce<Record<number, { name: string | null; hit_at: string; methods: string[] }>>(
+    (acc, h) => {
+      if (!acc[h.waypoint_id]) {
+        acc[h.waypoint_id] = { name: h.waypoint_name, hit_at: h.hit_at, methods: [] };
+      }
+      if (h.method && !acc[h.waypoint_id].methods.includes(h.method)) {
+        acc[h.waypoint_id].methods.push(h.method);
+      }
+      return acc;
+    },
+    {}
+  );
+  const groupedHits = Object.entries(hitsByWaypoint).map(([id, v]) => ({ waypoint_id: Number(id), ...v }));
+
+  const hitWaypointIds = new Set(groupedHits.map(h => h.waypoint_id));
+  const remainingWaypoints = waypoints.filter(wp => !hitWaypointIds.has(wp.id));
 
   return (
     <SafeAreaView style={styles.container} edges={['top']}>
@@ -98,7 +129,7 @@ export default function MyProgressScreen({ route, navigation }: Props) {
           {/* Summary cards */}
           <View style={styles.summaryRow}>
             <View style={styles.summaryCard}>
-              <Text style={styles.summaryNumber}>{hitCount}</Text>
+              <Text style={styles.summaryNumber}>{groupedHits.length}</Text>
               <Text style={styles.summaryLabel}>Waypoints{'\n'}Hit</Text>
             </View>
             <View style={[styles.summaryCard, styles.summaryCardMiddle]}>
@@ -118,7 +149,7 @@ export default function MyProgressScreen({ route, navigation }: Props) {
             <View style={styles.pointsHeader}>
               <Text style={styles.pointsLabel}>RIDE POINTS</Text>
               <Text style={styles.pointsValue}>
-                <Text style={styles.pointsCurrent}>{hitCount}</Text>
+                <Text style={styles.pointsCurrent}>{groupedHits.length}</Text>
                 <Text style={styles.pointsMax}> of {ride.total_waypoints} Max</Text>
               </Text>
             </View>
@@ -133,24 +164,31 @@ export default function MyProgressScreen({ route, navigation }: Props) {
           {/* Waypoint Hits */}
           <Text style={styles.sectionTitle}>Confirmed Hits</Text>
 
-          {hitCount === 0 ? (
+          {groupedHits.length === 0 ? (
             <View style={styles.emptySection}>
               <Text style={styles.emptyText}>No waypoints confirmed yet.</Text>
               <Text style={styles.emptySubText}>Submit evidence on the ride detail screen.</Text>
             </View>
           ) : (
             <View style={styles.list}>
-              {progress!.hits.map((hit, index) => (
-                <View key={`${hit.waypoint_id}-${index}`} style={styles.hitRow}>
-                  <View style={styles.hitCheck}>
-                    <Text style={styles.hitCheckText}>✓</Text>
+              {groupedHits.map(hit => {
+                const combined = hit.methods.length > 1;
+                const method   = combined ? 'combined' : (hit.methods[0] ?? null);
+                const ms       = METHOD_STYLE[method ?? ''] ?? METHOD_STYLE.default;
+                return (
+                  <View key={hit.waypoint_id} style={styles.hitRow}>
+                    <View style={[styles.hitStripe, { backgroundColor: ms.stripe }]} />
+                    <Text style={styles.hitCheck}>✓</Text>
+                    <View style={styles.hitInfo}>
+                      <Text style={styles.hitName}>{hit.name ?? `Waypoint ${hit.waypoint_id}`}</Text>
+                      <Text style={styles.hitDate}>{formatDate(hit.hit_at)}</Text>
+                    </View>
+                    <View style={[styles.methodBadge, { backgroundColor: ms.labelBg }]}>
+                      <Text style={[styles.methodBadgeText, { color: ms.labelText }]}>{ms.label}</Text>
+                    </View>
                   </View>
-                  <View style={styles.hitInfo}>
-                    <Text style={styles.hitName}>{hit.waypoint_name ?? `Waypoint ${hit.waypoint_id}`}</Text>
-                    <Text style={styles.hitDate}>{formatDate(hit.hit_at)}</Text>
-                  </View>
-                </View>
-              ))}
+                );
+              })}
             </View>
           )}
 
@@ -177,6 +215,29 @@ export default function MyProgressScreen({ route, navigation }: Props) {
                     </View>
                   );
                 })}
+              </View>
+            </>
+          )}
+
+          {/* Remaining Waypoints */}
+          {remainingWaypoints.length > 0 && (
+            <>
+              <Text style={[styles.sectionTitle, { marginTop: 28 }]}>
+                Remaining Waypoints
+                <Text style={styles.sectionCount}> ({remainingWaypoints.length})</Text>
+              </Text>
+              <View style={styles.list}>
+                {remainingWaypoints.map(wp => (
+                  <View key={wp.id} style={styles.remainingRow}>
+                    <View style={styles.remainingDot} />
+                    <View style={styles.remainingInfo}>
+                      <Text style={styles.remainingName}>{wp.name}</Text>
+                      {wp.group_name ? (
+                        <Text style={styles.remainingGroup}>{wp.group_name}</Text>
+                      ) : null}
+                    </View>
+                  </View>
+                ))}
               </View>
             </>
           )}
@@ -319,25 +380,22 @@ const styles = StyleSheet.create({
   hitRow: {
     flexDirection: 'row',
     alignItems: 'center',
-    padding: 14,
+    paddingVertical: 14,
+    paddingRight: 14,
     borderBottomWidth: 1,
     borderBottomColor: '#2d3748',
+    overflow: 'hidden',
+  },
+  hitStripe: {
+    width: 4,
+    alignSelf: 'stretch',
+    marginRight: 12,
   },
   hitCheck: {
-    width: 28,
-    height: 28,
-    borderRadius: 14,
-    backgroundColor: '#14532d',
-    justifyContent: 'center',
-    alignItems: 'center',
-    marginRight: 12,
-    borderWidth: 1,
-    borderColor: '#166534',
-  },
-  hitCheckText: {
     color: '#86efac',
-    fontSize: 14,
+    fontSize: 15,
     fontWeight: '700',
+    marginRight: 10,
   },
   hitInfo: { flex: 1 },
   hitName: {
@@ -349,6 +407,17 @@ const styles = StyleSheet.create({
     color: '#475569',
     fontSize: 12,
     marginTop: 2,
+  },
+  methodBadge: {
+    borderRadius: 5,
+    paddingHorizontal: 7,
+    paddingVertical: 3,
+    marginLeft: 8,
+  },
+  methodBadgeText: {
+    fontSize: 10,
+    fontWeight: '700',
+    letterSpacing: 0.5,
   },
   pendingRow: {
     flexDirection: 'row',
@@ -397,6 +466,39 @@ const styles = StyleSheet.create({
     color: '#334155',
     fontSize: 13,
     textAlign: 'center',
+  },
+  sectionCount: {
+    color: '#475569',
+    fontSize: 14,
+    fontWeight: '400',
+  },
+  remainingRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    padding: 14,
+    borderBottomWidth: 1,
+    borderBottomColor: '#2d3748',
+  },
+  remainingDot: {
+    width: 28,
+    height: 28,
+    borderRadius: 6,
+    backgroundColor: 'transparent',
+    borderWidth: 2,
+    borderColor: '#334155',
+    marginRight: 12,
+    flexShrink: 0,
+  },
+  remainingInfo: { flex: 1 },
+  remainingName: {
+    color: '#94a3b8',
+    fontSize: 15,
+    fontWeight: '500',
+  },
+  remainingGroup: {
+    color: '#475569',
+    fontSize: 12,
+    marginTop: 2,
   },
   errorText: {
     color: '#fca5a5',

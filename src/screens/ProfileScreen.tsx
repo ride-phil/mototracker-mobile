@@ -1,19 +1,23 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import {
   View,
   Text,
+  Image,
   TouchableOpacity,
   StyleSheet,
   ScrollView,
   Alert,
   ActivityIndicator,
+  RefreshControl,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { NativeStackScreenProps } from '@react-navigation/native-stack';
-import { RootStackParamList } from '../types/navigation';
-import { getStoredUser, logout, AuthUser } from '../services/auth';
+import { ProfileStackParamList } from '../types/navigation';
+import { logout } from '../services/auth';
+import { getFullProfile, FullProfile } from '../services/profile';
+import HamburgerButton from '../components/HamburgerButton';
 
-type Props = NativeStackScreenProps<RootStackParamList, 'Profile'> & {
+type Props = NativeStackScreenProps<ProfileStackParamList, 'ProfileMain'> & {
   onLogout: () => void;
 };
 
@@ -28,22 +32,39 @@ function Row({ label, value }: { label: string; value: string | null | undefined
 }
 
 export default function ProfileScreen({ navigation, onLogout }: Props) {
-  const [user, setUser]       = useState<AuthUser | null>(null);
+  const [profile, setProfile]     = useState<FullProfile | null>(null);
+  const [loading, setLoading]     = useState(true);
+  const [refreshing, setRefreshing] = useState(false);
   const [loggingOut, setLoggingOut] = useState(false);
 
-  useEffect(() => {
-    getStoredUser().then(setUser);
+  const fetchProfile = useCallback(async (isRefresh = false) => {
+    if (isRefresh) setRefreshing(true);
+    try {
+      const p = await getFullProfile();
+      setProfile(p);
+    } finally {
+      setLoading(false);
+      setRefreshing(false);
+    }
   }, []);
 
+  useEffect(() => {
+    fetchProfile();
+  }, [fetchProfile]);
+
+  // Refresh when returning from EditProfile
+  useEffect(() => {
+    const unsubscribe = navigation.addListener('focus', () => {
+      fetchProfile();
+    });
+    return unsubscribe;
+  }, [navigation, fetchProfile]);
+
   function confirmLogout() {
-    Alert.alert(
-      'Sign Out',
-      'Are you sure you want to sign out?',
-      [
-        { text: 'Cancel', style: 'cancel' },
-        { text: 'Sign Out', style: 'destructive', onPress: handleLogout },
-      ]
-    );
+    Alert.alert('Sign Out', 'Are you sure you want to sign out?', [
+      { text: 'Cancel', style: 'cancel' },
+      { text: 'Sign Out', style: 'destructive', onPress: handleLogout },
+    ]);
   }
 
   async function handleLogout() {
@@ -52,61 +73,82 @@ export default function ProfileScreen({ navigation, onLogout }: Props) {
       await logout();
       onLogout();
     } catch {
-      // Token may already be invalid — still clear locally
       onLogout();
     }
   }
 
+  const initials = profile?.name?.[0]?.toUpperCase() ?? '?';
+
+  if (loading) {
+    return (
+      <SafeAreaView style={styles.container} edges={['top']}>
+        <View style={styles.header}>
+          <Text style={styles.headerTitle}>Profile</Text>
+          <HamburgerButton />
+        </View>
+        <View style={styles.centered}>
+          <ActivityIndicator color="#38bdf8" size="large" />
+        </View>
+      </SafeAreaView>
+    );
+  }
+
   return (
     <SafeAreaView style={styles.container} edges={['top']}>
-
       <View style={styles.header}>
-        <TouchableOpacity onPress={() => navigation.goBack()} style={styles.backButton}>
-          <Text style={styles.backText}>← Back</Text>
-        </TouchableOpacity>
         <Text style={styles.headerTitle}>Profile</Text>
-        <View style={{ width: 60 }} />
+        <View style={styles.headerRight}>
+          <TouchableOpacity onPress={() => navigation.navigate('EditProfile')} style={styles.editButton}>
+            <Text style={styles.editButtonText}>Edit</Text>
+          </TouchableOpacity>
+          <HamburgerButton />
+        </View>
       </View>
 
-      <ScrollView contentContainerStyle={styles.scrollContent}>
-
-        {/* Avatar placeholder + name */}
+      <ScrollView
+        contentContainerStyle={styles.scrollContent}
+        refreshControl={<RefreshControl refreshing={refreshing} onRefresh={() => fetchProfile(true)} tintColor="#38bdf8" />}
+      >
+        {/* Avatar + identity */}
         <View style={styles.avatarSection}>
-          <View style={styles.avatar}>
-            <Text style={styles.avatarText}>
-              {user?.display_name?.[0]?.toUpperCase() ?? user?.name?.[0]?.toUpperCase() ?? '?'}
-            </Text>
+          {profile?.avatar_url ? (
+            <Image source={{ uri: profile.avatar_url }} style={styles.avatarImage} />
+          ) : (
+            <View style={styles.avatarPlaceholder}>
+              <Text style={styles.avatarInitial}>{initials}</Text>
+            </View>
+          )}
+
+          <Text style={styles.displayName}>{profile?.name}</Text>
+          {profile?.username ? (
+            <Text style={styles.username}>@{profile.username}</Text>
+          ) : null}
+          <Text style={styles.email}>{profile?.email}</Text>
+
+          <View style={styles.metaRow}>
+            <View style={styles.roleBadge}>
+              <Text style={styles.roleText}>{profile?.role?.toUpperCase()}</Text>
+            </View>
+            {profile?.location ? (
+              <Text style={styles.location}>📍 {profile.location}</Text>
+            ) : null}
           </View>
-          <Text style={styles.displayName}>{user?.display_name ?? user?.name}</Text>
-          <Text style={styles.email}>{user?.email}</Text>
-          <View style={styles.roleBadge}>
-            <Text style={styles.roleText}>{user?.role?.toUpperCase()}</Text>
-          </View>
+
+          {profile?.bio ? (
+            <Text style={styles.bio}>{profile.bio}</Text>
+          ) : null}
         </View>
 
-        {/* Rider details */}
-        {(user?.bike || user?.riding_club) && (
+        {/* Rider info */}
+        {(profile?.bike || profile?.riding_style || profile?.riding_club) && (
           <View style={styles.card}>
             <Text style={styles.cardTitle}>Rider Info</Text>
-            <Row label="Bike" value={user?.bike} />
-            <Row label="Club" value={user?.riding_club} />
+            <Row label="Motorcycle" value={profile?.bike} />
+            <Row label="Style"      value={profile?.riding_style} />
+            <Row label="Club"       value={profile?.riding_club} />
           </View>
         )}
 
-        {/* App info */}
-        <View style={styles.card}>
-          <Text style={styles.cardTitle}>App</Text>
-          <View style={styles.row}>
-            <Text style={styles.rowLabel}>Version</Text>
-            <Text style={styles.rowValue}>1.0.0</Text>
-          </View>
-          <View style={styles.row}>
-            <Text style={styles.rowLabel}>Server</Text>
-            <Text style={styles.rowValue}>app.mototracker.app</Text>
-          </View>
-        </View>
-
-        {/* Logout */}
         <TouchableOpacity
           style={[styles.logoutButton, loggingOut && styles.logoutDisabled]}
           onPress={confirmLogout}
@@ -117,17 +159,14 @@ export default function ProfileScreen({ navigation, onLogout }: Props) {
             : <Text style={styles.logoutText}>Sign Out</Text>
           }
         </TouchableOpacity>
-
       </ScrollView>
     </SafeAreaView>
   );
 }
 
 const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-    backgroundColor: '#0f1117',
-  },
+  container: { flex: 1, backgroundColor: '#0f1117' },
+  centered: { flex: 1, justifyContent: 'center', alignItems: 'center' },
   header: {
     flexDirection: 'row',
     justifyContent: 'space-between',
@@ -137,21 +176,24 @@ const styles = StyleSheet.create({
     borderBottomWidth: 1,
     borderBottomColor: '#1a2030',
   },
-  backButton: { paddingVertical: 4 },
-  backText: { color: '#38bdf8', fontSize: 16 },
   headerTitle: { color: '#f1f5f9', fontSize: 17, fontWeight: '600' },
-  scrollContent: {
-    padding: 20,
-    paddingBottom: 48,
+  headerRight: { flexDirection: 'row', alignItems: 'center', gap: 16 },
+  editButton: { paddingVertical: 4 },
+  editButtonText: { color: '#38bdf8', fontSize: 15, fontWeight: '600' },
+  scrollContent: { padding: 20, paddingBottom: 48 },
+  avatarSection: { alignItems: 'center', marginBottom: 24 },
+  avatarImage: {
+    width: 90,
+    height: 90,
+    borderRadius: 45,
+    borderWidth: 2,
+    borderColor: '#38bdf8',
+    marginBottom: 12,
   },
-  avatarSection: {
-    alignItems: 'center',
-    marginBottom: 28,
-  },
-  avatar: {
-    width: 80,
-    height: 80,
-    borderRadius: 40,
+  avatarPlaceholder: {
+    width: 90,
+    height: 90,
+    borderRadius: 45,
     backgroundColor: '#1a2030',
     borderWidth: 2,
     borderColor: '#38bdf8',
@@ -159,34 +201,20 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     marginBottom: 12,
   },
-  avatarText: {
-    color: '#38bdf8',
-    fontSize: 32,
-    fontWeight: '700',
-  },
-  displayName: {
-    color: '#f1f5f9',
-    fontSize: 22,
-    fontWeight: '700',
-    marginBottom: 4,
-  },
-  email: {
-    color: '#64748b',
-    fontSize: 14,
-    marginBottom: 10,
-  },
+  avatarInitial: { color: '#38bdf8', fontSize: 36, fontWeight: '700' },
+  displayName: { color: '#f1f5f9', fontSize: 22, fontWeight: '700', marginBottom: 2 },
+  username: { color: '#475569', fontSize: 14, marginBottom: 4 },
+  email: { color: '#64748b', fontSize: 14, marginBottom: 10 },
+  metaRow: { flexDirection: 'row', alignItems: 'center', gap: 10, marginBottom: 10 },
   roleBadge: {
     backgroundColor: '#1e3a5f',
     borderRadius: 6,
     paddingHorizontal: 10,
     paddingVertical: 3,
   },
-  roleText: {
-    color: '#7dd3fc',
-    fontSize: 11,
-    fontWeight: '600',
-    letterSpacing: 1,
-  },
+  roleText: { color: '#7dd3fc', fontSize: 11, fontWeight: '600', letterSpacing: 1 },
+  location: { color: '#64748b', fontSize: 13 },
+  bio: { color: '#94a3b8', fontSize: 14, textAlign: 'center', lineHeight: 20, marginTop: 4 },
   card: {
     backgroundColor: '#1a2030',
     borderRadius: 12,
@@ -213,15 +241,8 @@ const styles = StyleSheet.create({
     borderTopWidth: 1,
     borderTopColor: '#2d3748',
   },
-  rowLabel: {
-    color: '#64748b',
-    fontSize: 14,
-  },
-  rowValue: {
-    color: '#f1f5f9',
-    fontSize: 14,
-    fontWeight: '500',
-  },
+  rowLabel: { color: '#64748b', fontSize: 14 },
+  rowValue: { color: '#f1f5f9', fontSize: 14, fontWeight: '500', flex: 1, textAlign: 'right' },
   logoutButton: {
     backgroundColor: '#1a0a0a',
     borderRadius: 12,
@@ -231,12 +252,6 @@ const styles = StyleSheet.create({
     borderColor: '#991b1b',
     marginTop: 8,
   },
-  logoutDisabled: {
-    opacity: 0.5,
-  },
-  logoutText: {
-    color: '#fca5a5',
-    fontSize: 16,
-    fontWeight: '600',
-  },
+  logoutDisabled: { opacity: 0.5 },
+  logoutText: { color: '#fca5a5', fontSize: 16, fontWeight: '600' },
 });

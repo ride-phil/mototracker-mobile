@@ -4,6 +4,7 @@ export interface WaypointHit {
   waypoint_id: number;
   waypoint_name: string | null;
   hit_at: string;
+  method: string | null;
 }
 
 export interface PendingVerification {

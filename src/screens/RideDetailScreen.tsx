@@ -9,47 +9,54 @@ import {
   Image,
   Alert,
   Linking,
+  Modal,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { NativeStackScreenProps } from '@react-navigation/native-stack';
 import Mapbox from '@rnmapbox/maps';
 import Constants from 'expo-constants';
-import { Waypoint, getWaypoints, joinRide, leaveRide, downloadAndShareGpx } from '../services/rides';
-import { RootStackParamList } from '../types/navigation';
+import { Ride, Waypoint, getRide, getWaypoints, joinRide, leaveRide, downloadAndShareGpx } from '../services/rides';
+import { RidesStackParamList } from '../types/navigation';
 
 Mapbox.setAccessToken(Constants.expoConfig?.extra?.mapboxToken ?? '');
 
 const MAP_HEIGHT = 260;
 
-type Props = NativeStackScreenProps<RootStackParamList, 'RideDetail'>;
+type Props = NativeStackScreenProps<RidesStackParamList, 'RideDetail'>;
 
 export default function RideDetailScreen({ route, navigation }: Props) {
-  const initialRide = route.params.ride;
+  const [ride, setRide]             = useState<Ride>(route.params.ride);
   const [waypoints, setWaypoints]   = useState<Waypoint[]>([]);
   const [loading, setLoading]       = useState(true);
-  const [isJoined, setIsJoined]     = useState(initialRide.is_joined);
+  const [isJoined, setIsJoined]     = useState(route.params.ride.is_joined);
   const [joining, setJoining]       = useState(false);
   const [leaving, setLeaving]       = useState(false);
   const [downloading, setDownloading] = useState(false);
   const [error, setError]           = useState<string | null>(null);
+  const [photoUrl, setPhotoUrl]     = useState<string | null>(null);
 
-  // Live progress numbers (may have updated since list was fetched)
-  const hitCount       = initialRide.hit_count;
-  const totalWaypoints = initialRide.total_waypoints;
-  const completionPct  = initialRide.completion_pct;
+  const hitCount       = ride.hit_count       ?? 0;
+  const earnedPoints   = ride.earned_points   ?? 0;
+  const totalWaypoints = ride.total_waypoints ?? 0;
+  const completionPct  = ride.completion_pct  ?? 0;
 
   useEffect(() => {
-    getWaypoints(initialRide.id)
-      .then(setWaypoints)
+    const id = route.params.ride.id;
+    Promise.all([getRide(id), getWaypoints(id)])
+      .then(([freshRide, wps]) => {
+        setRide(freshRide);
+        setIsJoined(freshRide.is_joined);
+        setWaypoints(wps);
+      })
       .catch(e => setError(e.message))
       .finally(() => setLoading(false));
-  }, [initialRide.id]);
+  }, [route.params.ride.id]);
 
   async function handleJoin() {
     setJoining(true);
     setError(null);
     try {
-      await joinRide(initialRide.id);
+      await joinRide(ride.id);
       setIsJoined(true);
     } catch (e: any) {
       setError(e.message || 'Failed to join ride.');
@@ -61,7 +68,7 @@ export default function RideDetailScreen({ route, navigation }: Props) {
   function confirmLeave() {
     Alert.alert(
       'Leave Ride',
-      `Are you sure you want to leave "${initialRide.name}"? Your progress will be removed.`,
+      `Are you sure you want to leave "${ride.name}"? Your progress will be removed.`,
       [
         { text: 'Cancel', style: 'cancel' },
         { text: 'Leave', style: 'destructive', onPress: doLeave },
@@ -73,7 +80,7 @@ export default function RideDetailScreen({ route, navigation }: Props) {
     setLeaving(true);
     setError(null);
     try {
-      await leaveRide(initialRide.id);
+      await leaveRide(ride.id);
       setIsJoined(false);
     } catch (e: any) {
       setError(e.message || 'Failed to leave ride.');
@@ -86,7 +93,7 @@ export default function RideDetailScreen({ route, navigation }: Props) {
     setDownloading(true);
     setError(null);
     try {
-      await downloadAndShareGpx(initialRide.id, initialRide.name);
+      await downloadAndShareGpx(ride.id, ride.name);
     } catch (e: any) {
       setError(e.message || 'Failed to download GPX.');
     } finally {
@@ -97,6 +104,12 @@ export default function RideDetailScreen({ route, navigation }: Props) {
   function openDirections(wp: Waypoint) {
     const url = `https://www.google.com/maps/dir/?api=1&destination=${wp.latitude},${wp.longitude}`;
     Linking.openURL(url).catch(() => setError('Could not open maps app.'));
+  }
+
+  function openMyMaps() {
+    if (ride.my_maps_url) {
+      Linking.openURL(ride.my_maps_url).catch(() => setError('Could not open map link.'));
+    }
   }
 
   function formatDate(iso: string | null): string {
@@ -130,17 +143,17 @@ export default function RideDetailScreen({ route, navigation }: Props) {
         <TouchableOpacity onPress={() => navigation.goBack()} style={styles.backButton}>
           <Text style={styles.backText}>← Rides</Text>
         </TouchableOpacity>
-        <View style={[styles.typeBadge, initialRide.type === 'rally' ? styles.badgeRally : styles.badgeExplorer]}>
-          <Text style={styles.typeBadgeText}>{initialRide.type}</Text>
+        <View style={[styles.typeBadge, ride.type === 'rally' ? styles.badgeRally : styles.badgeExplorer]}>
+          <Text style={[styles.typeBadgeText, ride.type === 'rally' ? styles.typeBadgeTextRally : styles.typeBadgeTextExplorer]}>{ride.type}</Text>
         </View>
       </View>
 
       <ScrollView contentContainerStyle={styles.scrollContent}>
 
         {/* Featured image */}
-        {initialRide.featured_image ? (
+        {ride.featured_image ? (
           <Image
-            source={{ uri: initialRide.featured_image }}
+            source={{ uri: ride.featured_image }}
             style={styles.featuredImage}
             resizeMode="cover"
           />
@@ -148,29 +161,31 @@ export default function RideDetailScreen({ route, navigation }: Props) {
 
         {/* Title + description */}
         <View style={styles.titleSection}>
-          <Text style={styles.rideName}>{initialRide.name}</Text>
-          {initialRide.location ? (
-            <Text style={styles.locationText}>📍 {initialRide.location}</Text>
+          <Text style={styles.rideName}>{ride.name}</Text>
+          {ride.location ? (
+            <Text style={styles.locationText}>📍 {ride.location}</Text>
           ) : null}
-          {initialRide.description ? (
-            <Text style={styles.description}>{initialRide.description}</Text>
+          {ride.description ? (
+            <Text style={styles.description}>{ride.description}</Text>
           ) : null}
         </View>
 
-        {/* Schedule card */}
-        <View style={styles.scheduleCard}>
-          <View style={styles.scheduleRow}>
-            <View style={styles.scheduleItem}>
-              <Text style={styles.scheduleLabel}>START</Text>
-              <Text style={styles.scheduleValue}>{formatDate(initialRide.start_date)}</Text>
-            </View>
-            <View style={styles.scheduleDivider} />
-            <View style={styles.scheduleItem}>
-              <Text style={styles.scheduleLabel}>END</Text>
-              <Text style={styles.scheduleValue}>{formatDate(initialRide.end_date)}</Text>
+        {/* Schedule card — rally only */}
+        {ride.type === 'rally' && (
+          <View style={styles.scheduleCard}>
+            <View style={styles.scheduleRow}>
+              <View style={styles.scheduleItem}>
+                <Text style={styles.scheduleLabel}>START</Text>
+                <Text style={styles.scheduleValue}>{formatDate(ride.start_date)}</Text>
+              </View>
+              <View style={styles.scheduleDivider} />
+              <View style={styles.scheduleItem}>
+                <Text style={styles.scheduleLabel}>END</Text>
+                <Text style={styles.scheduleValue}>{formatDate(ride.end_date)}</Text>
+              </View>
             </View>
           </View>
-        </View>
+        )}
 
         {/* Progress card — only when joined and there are waypoints */}
         {isJoined && totalWaypoints > 0 && (
@@ -183,6 +198,10 @@ export default function RideDetailScreen({ route, navigation }: Props) {
               <View style={styles.statItem}>
                 <Text style={styles.statValue}>{totalWaypoints}</Text>
                 <Text style={styles.statLabel}>Waypoints</Text>
+              </View>
+              <View style={styles.statItem}>
+                <Text style={[styles.statValue, styles.statPts]}>{earnedPoints}</Text>
+                <Text style={styles.statLabel}>Points</Text>
               </View>
               <View style={styles.statItem}>
                 <Text style={[styles.statValue, styles.statPct]}>{completionPct}%</Text>
@@ -231,26 +250,39 @@ export default function RideDetailScreen({ route, navigation }: Props) {
           </View>
         )}
 
+        {/* Action buttons — when joined */}
+        {isJoined && !loading && waypoints.length > 0 && (
+          <View style={styles.actionButtons}>
+            <TouchableOpacity
+              style={styles.submitButton}
+              onPress={() => navigation.navigate('SubmitVerification', { ride: ride, waypoints })}
+            >
+              <Text style={styles.submitButtonText}>Submit Evidence</Text>
+            </TouchableOpacity>
+            <TouchableOpacity
+              style={styles.progressButton}
+              onPress={() => navigation.navigate('MyProgress', { ride: ride })}
+            >
+              <Text style={styles.progressButtonText}>My Progress</Text>
+            </TouchableOpacity>
+          </View>
+        )}
+
         {/* Waypoints section */}
         <View style={styles.sectionHeader}>
           <Text style={styles.sectionTitle}>Waypoints</Text>
-          <View style={styles.sectionActions}>
-            {!loading && waypoints.length > 0 && (
-              <TouchableOpacity
-                style={[styles.gpxButton, downloading && styles.buttonDisabled]}
-                onPress={handleDownloadGpx}
-                disabled={downloading}
-              >
-                {downloading
-                  ? <ActivityIndicator color="#38bdf8" size="small" />
-                  : <Text style={styles.gpxButtonText}>⬇ GPX</Text>
-                }
-              </TouchableOpacity>
-            )}
-            {!loading && (
-              <Text style={styles.waypointCount}>{waypoints.length} locations</Text>
-            )}
-          </View>
+          {!loading && waypoints.length > 0 && (
+            <TouchableOpacity
+              style={[styles.gpxButton, downloading && styles.buttonDisabled]}
+              onPress={handleDownloadGpx}
+              disabled={downloading}
+            >
+              {downloading
+                ? <ActivityIndicator color="#38bdf8" size="small" />
+                : <Text style={styles.gpxButtonText}>⬇ GPX</Text>
+              }
+            </TouchableOpacity>
+          )}
         </View>
 
         {loading ? (
@@ -284,6 +316,13 @@ export default function RideDetailScreen({ route, navigation }: Props) {
           </View>
         )}
 
+        {/* Google Map button — after map, when coordinator has set a link */}
+        {ride.my_maps_url ? (
+          <TouchableOpacity style={styles.mapsButton} onPress={openMyMaps}>
+            <Text style={styles.mapsButtonText}>🗺 Open Google Map</Text>
+          </TouchableOpacity>
+        ) : null}
+
         {/* Waypoint list */}
         {!loading && waypoints.length > 0 && (
           <View style={styles.waypointList}>
@@ -292,9 +331,18 @@ export default function RideDetailScreen({ route, navigation }: Props) {
                 styles.waypointRow,
                 index === waypoints.length - 1 && styles.waypointRowLast,
               ]}>
-                <View style={styles.waypointNumber}>
-                  <Text style={styles.waypointNumberText}>{index + 1}</Text>
-                </View>
+                <TouchableOpacity
+                  onPress={() => wp.reference_photo_url && setPhotoUrl(wp.reference_photo_url)}
+                  activeOpacity={wp.reference_photo_url ? 0.7 : 1}
+                >
+                  {wp.reference_photo_url ? (
+                    <Image source={{ uri: wp.reference_photo_url }} style={styles.waypointThumb} />
+                  ) : (
+                    <View style={styles.waypointThumbEmpty}>
+                      <Text style={styles.waypointThumbEmptyText}>📍</Text>
+                    </View>
+                  )}
+                </TouchableOpacity>
                 <View style={styles.waypointInfo}>
                   <Text style={styles.waypointName}>{wp.name}</Text>
                   {wp.description ? (
@@ -317,25 +365,17 @@ export default function RideDetailScreen({ route, navigation }: Props) {
           <Text style={styles.emptyText}>No waypoints configured for this ride.</Text>
         )}
 
-        {/* Action buttons — when joined */}
-        {isJoined && !loading && waypoints.length > 0 && (
-          <View style={styles.actionButtons}>
-            <TouchableOpacity
-              style={styles.submitButton}
-              onPress={() => navigation.navigate('SubmitVerification', { ride: initialRide, waypoints })}
-            >
-              <Text style={styles.submitButtonText}>Submit Evidence</Text>
-            </TouchableOpacity>
-            <TouchableOpacity
-              style={styles.progressButton}
-              onPress={() => navigation.navigate('MyProgress', { ride: initialRide })}
-            >
-              <Text style={styles.progressButtonText}>My Progress</Text>
-            </TouchableOpacity>
-          </View>
-        )}
-
       </ScrollView>
+
+      {/* Fullscreen reference photo modal */}
+      <Modal visible={!!photoUrl} transparent animationType="fade" onRequestClose={() => setPhotoUrl(null)}>
+        <TouchableOpacity style={styles.photoModal} activeOpacity={1} onPress={() => setPhotoUrl(null)}>
+          {photoUrl && (
+            <Image source={{ uri: photoUrl }} style={styles.photoFull} resizeMode="contain" />
+          )}
+          <Text style={styles.photoClose}>✕ Close</Text>
+        </TouchableOpacity>
+      </Modal>
     </SafeAreaView>
   );
 }
@@ -355,15 +395,16 @@ const styles = StyleSheet.create({
   backButton: { paddingVertical: 4 },
   backText: { color: '#38bdf8', fontSize: 16 },
   typeBadge: { borderRadius: 6, paddingHorizontal: 10, paddingVertical: 4 },
-  badgeRally: { backgroundColor: '#1e3a5f' },
-  badgeExplorer: { backgroundColor: '#1a3a2a' },
+  badgeRally: { backgroundColor: '#1d4ed8' },
+  badgeExplorer: { backgroundColor: '#15803d' },
   typeBadgeText: {
-    color: '#94a3b8',
     fontSize: 11,
-    fontWeight: '600',
+    fontWeight: '700',
     textTransform: 'uppercase',
     letterSpacing: 1,
   },
+  typeBadgeTextRally: { color: '#bfdbfe' },
+  typeBadgeTextExplorer: { color: '#bbf7d0' },
 
   scrollContent: { paddingBottom: 40 },
 
@@ -408,8 +449,9 @@ const styles = StyleSheet.create({
   },
   progressStats: { flexDirection: 'row', justifyContent: 'space-around', marginBottom: 14 },
   statItem: { alignItems: 'center' },
-  statValue: { color: '#f1f5f9', fontSize: 24, fontWeight: '700' },
+  statValue: { color: '#f1f5f9', fontSize: 22, fontWeight: '700' },
   statPct: { color: '#38bdf8' },
+  statPts: { color: '#fb923c' },
   statLabel: { color: '#475569', fontSize: 12, marginTop: 2 },
   progressTrack: {
     height: 6,
@@ -483,6 +525,17 @@ const styles = StyleSheet.create({
   },
   sectionTitle: { color: '#f1f5f9', fontSize: 18, fontWeight: '700' },
   sectionActions: { flexDirection: 'row', alignItems: 'center', gap: 12 },
+  mapsButton: {
+    marginHorizontal: 16,
+    marginBottom: 12,
+    borderRadius: 10,
+    paddingVertical: 12,
+    alignItems: 'center',
+    borderWidth: 1,
+    borderColor: '#4ade80',
+    backgroundColor: '#0a2010',
+  },
+  mapsButtonText: { color: '#4ade80', fontSize: 14, fontWeight: '600' },
   gpxButton: {
     borderRadius: 8,
     paddingHorizontal: 12,
@@ -538,18 +591,25 @@ const styles = StyleSheet.create({
     borderBottomColor: '#2d3748',
   },
   waypointRowLast: { borderBottomWidth: 0 },
-  waypointNumber: {
-    width: 28,
-    height: 28,
-    borderRadius: 14,
+  waypointThumb: {
+    width: 52,
+    height: 52,
+    borderRadius: 8,
+    marginRight: 12,
     backgroundColor: '#0f1117',
+  },
+  waypointThumbEmpty: {
+    width: 52,
+    height: 52,
+    borderRadius: 8,
+    marginRight: 12,
+    backgroundColor: '#1a2030',
     justifyContent: 'center',
     alignItems: 'center',
-    marginRight: 12,
     borderWidth: 1,
-    borderColor: '#38bdf8',
+    borderColor: '#2d3748',
   },
-  waypointNumberText: { color: '#38bdf8', fontSize: 12, fontWeight: '700' },
+  waypointThumbEmptyText: { fontSize: 22 },
   waypointInfo: { flex: 1 },
   waypointName: { color: '#f1f5f9', fontSize: 15, fontWeight: '600' },
   waypointDesc: { color: '#64748b', fontSize: 13, marginTop: 2 },
@@ -564,6 +624,22 @@ const styles = StyleSheet.create({
   },
   directionsText: { color: '#38bdf8', fontSize: 12, fontWeight: '600' },
 
+  photoModal: {
+    flex: 1,
+    backgroundColor: 'rgba(0,0,0,0.95)',
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  photoFull: {
+    width: '100%',
+    height: '80%',
+  },
+  photoClose: {
+    color: '#94a3b8',
+    fontSize: 15,
+    marginTop: 20,
+    fontWeight: '600',
+  },
   emptyText: {
     color: '#475569',
     fontSize: 14,

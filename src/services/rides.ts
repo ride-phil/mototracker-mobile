@@ -16,7 +16,10 @@ export interface Ride {
   is_joined: boolean;
   total_waypoints: number;
   hit_count: number;
+  earned_points: number;
+  max_points: number;
   completion_pct: number;
+  my_maps_url: string | null;
 }
 
 export interface Waypoint {
@@ -28,10 +31,16 @@ export interface Waypoint {
   radius_meters: number;
   group_id: number;
   group_name: string;
+  reference_photo_url: string | null;
 }
 
 export async function getRides(): Promise<Ride[]> {
   const res = await api.get<{ data: Ride[] }>('/rides');
+  return res.data;
+}
+
+export async function getRide(rideId: number): Promise<Ride> {
+  const res = await api.get<{ data: Ride }>(`/rides/${rideId}`);
   return res.data;
 }
 

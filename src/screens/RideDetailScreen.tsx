@@ -10,6 +10,7 @@ import {
   Alert,
   Linking,
   Modal,
+  TextInput,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { NativeStackScreenProps } from '@react-navigation/native-stack';
@@ -29,11 +30,14 @@ export default function RideDetailScreen({ route, navigation }: Props) {
   const [waypoints, setWaypoints]   = useState<Waypoint[]>([]);
   const [loading, setLoading]       = useState(true);
   const [isJoined, setIsJoined]     = useState(route.params.ride.is_joined);
-  const [joining, setJoining]       = useState(false);
-  const [leaving, setLeaving]       = useState(false);
-  const [downloading, setDownloading] = useState(false);
-  const [error, setError]           = useState<string | null>(null);
-  const [photoUrl, setPhotoUrl]     = useState<string | null>(null);
+  const [joining, setJoining]           = useState(false);
+  const [leaving, setLeaving]           = useState(false);
+  const [downloading, setDownloading]   = useState(false);
+  const [error, setError]               = useState<string | null>(null);
+  const [photoUrl, setPhotoUrl]         = useState<string | null>(null);
+  const [joinCodeModal, setJoinCodeModal] = useState(false);
+  const [joinCodeInput, setJoinCodeInput] = useState('');
+  const [joinCodeError, setJoinCodeError] = useState<string | null>(null);
 
   const hitCount       = ride.hit_count       ?? 0;
   const earnedPoints   = ride.earned_points   ?? 0;
@@ -52,16 +56,32 @@ export default function RideDetailScreen({ route, navigation }: Props) {
       .finally(() => setLoading(false));
   }, [route.params.ride.id]);
 
-  async function handleJoin() {
+  function handleJoinPress() {
+    if (ride.requires_join_code) {
+      setJoinCodeInput('');
+      setJoinCodeError(null);
+      setJoinCodeModal(true);
+    } else {
+      doJoin();
+    }
+  }
+
+  async function doJoin(code?: string) {
     setJoining(true);
     setError(null);
     try {
-      await joinRide(ride.id);
+      await joinRide(ride.id, code);
       setIsJoined(true);
+      setJoinCodeModal(false);
     } catch (e: any) {
-      setError(e.message || 'Failed to join ride.');
-    } finally {
-      setJoining(false);
+      const msg = e.message || 'Failed to join ride.';
+      if (code !== undefined) {
+        setJoinCodeError(msg);
+        setJoining(false);
+      } else {
+        setError(msg);
+        setJoining(false);
+      }
     }
   }
 
@@ -224,12 +244,14 @@ export default function RideDetailScreen({ route, navigation }: Props) {
         {!isJoined ? (
           <TouchableOpacity
             style={[styles.joinButton, joining && styles.buttonDisabled]}
-            onPress={handleJoin}
+            onPress={handleJoinPress}
             disabled={joining}
           >
             {joining
               ? <ActivityIndicator color="#0f1117" />
-              : <Text style={styles.joinButtonText}>Join This Ride</Text>
+              : <Text style={styles.joinButtonText}>
+                  {ride.requires_join_code ? '🔒 Join with Code' : 'Join This Ride'}
+                </Text>
             }
           </TouchableOpacity>
         ) : (
@@ -366,6 +388,43 @@ export default function RideDetailScreen({ route, navigation }: Props) {
         )}
 
       </ScrollView>
+
+      {/* Join code modal */}
+      <Modal visible={joinCodeModal} transparent animationType="fade" onRequestClose={() => setJoinCodeModal(false)}>
+        <View style={styles.joinCodeOverlay}>
+          <View style={styles.joinCodeSheet}>
+            <Text style={styles.joinCodeTitle}>Enter Join Code</Text>
+            {ride.join_code_hint ? (
+              <Text style={styles.joinCodeHint}>Hint: {ride.join_code_hint}</Text>
+            ) : null}
+            <TextInput
+              style={styles.joinCodeInput}
+              placeholder="Join code"
+              placeholderTextColor="#475569"
+              value={joinCodeInput}
+              onChangeText={t => { setJoinCodeInput(t); setJoinCodeError(null); }}
+              autoCapitalize="none"
+              autoCorrect={false}
+            />
+            {joinCodeError ? (
+              <Text style={styles.joinCodeErrorText}>{joinCodeError}</Text>
+            ) : null}
+            <TouchableOpacity
+              style={[styles.joinCodeSubmit, (joining || !joinCodeInput.trim()) && styles.buttonDisabled]}
+              onPress={() => doJoin(joinCodeInput.trim())}
+              disabled={joining || !joinCodeInput.trim()}
+            >
+              {joining
+                ? <ActivityIndicator color="#0f1117" />
+                : <Text style={styles.joinCodeSubmitText}>Join Ride</Text>
+              }
+            </TouchableOpacity>
+            <TouchableOpacity style={styles.joinCodeCancel} onPress={() => setJoinCodeModal(false)}>
+              <Text style={styles.joinCodeCancelText}>Cancel</Text>
+            </TouchableOpacity>
+          </View>
+        </View>
+      </Modal>
 
       {/* Fullscreen reference photo modal */}
       <Modal visible={!!photoUrl} transparent animationType="fade" onRequestClose={() => setPhotoUrl(null)}>
@@ -665,4 +724,72 @@ const styles = StyleSheet.create({
     borderColor: '#38bdf8',
   },
   progressButtonText: { color: '#38bdf8', fontSize: 16, fontWeight: '600' },
+
+  // Join code modal
+  joinCodeOverlay: {
+    flex: 1,
+    backgroundColor: 'rgba(0,0,0,0.7)',
+    justifyContent: 'center',
+    padding: 24,
+  },
+  joinCodeSheet: {
+    backgroundColor: '#1a2030',
+    borderRadius: 16,
+    padding: 24,
+    borderWidth: 1,
+    borderColor: '#2d3748',
+  },
+  joinCodeTitle: {
+    color: '#f1f5f9',
+    fontSize: 20,
+    fontWeight: '700',
+    marginBottom: 8,
+    textAlign: 'center',
+  },
+  joinCodeHint: {
+    color: '#64748b',
+    fontSize: 13,
+    textAlign: 'center',
+    marginBottom: 16,
+    fontStyle: 'italic',
+  },
+  joinCodeInput: {
+    backgroundColor: '#0f1117',
+    borderRadius: 10,
+    borderWidth: 1,
+    borderColor: '#2d3748',
+    color: '#f1f5f9',
+    fontSize: 16,
+    paddingHorizontal: 16,
+    paddingVertical: 12,
+    marginBottom: 12,
+    textAlign: 'center',
+    letterSpacing: 2,
+  },
+  joinCodeErrorText: {
+    color: '#fca5a5',
+    fontSize: 13,
+    textAlign: 'center',
+    marginBottom: 12,
+  },
+  joinCodeSubmit: {
+    backgroundColor: '#38bdf8',
+    borderRadius: 10,
+    paddingVertical: 14,
+    alignItems: 'center',
+    marginBottom: 10,
+  },
+  joinCodeSubmitText: {
+    color: '#0f1117',
+    fontSize: 16,
+    fontWeight: '700',
+  },
+  joinCodeCancel: {
+    paddingVertical: 10,
+    alignItems: 'center',
+  },
+  joinCodeCancelText: {
+    color: '#64748b',
+    fontSize: 15,
+  },
 });

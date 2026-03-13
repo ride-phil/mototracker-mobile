@@ -20,6 +20,8 @@ export interface Ride {
   max_points: number;
   completion_pct: number;
   my_maps_url: string | null;
+  requires_join_code: boolean;
+  join_code_hint: string | null;
 }
 
 export interface Waypoint {
@@ -44,8 +46,8 @@ export async function getRide(rideId: number): Promise<Ride> {
   return res.data;
 }
 
-export async function joinRide(rideId: number): Promise<void> {
-  await api.post(`/rides/${rideId}/join`, {});
+export async function joinRide(rideId: number, joinCode?: string): Promise<void> {
+  await api.post(`/rides/${rideId}/join`, joinCode ? { join_code: joinCode } : {});
 }
 
 export async function leaveRide(rideId: number): Promise<void> {

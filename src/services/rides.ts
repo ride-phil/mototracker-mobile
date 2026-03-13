@@ -1,5 +1,5 @@
 import { api } from './api';
-import * as FileSystem from 'expo-file-system';
+import { File, Paths } from 'expo-file-system/next';
 import * as Sharing from 'expo-sharing';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 
@@ -51,20 +51,18 @@ export async function getWaypoints(rideId: number): Promise<Waypoint[]> {
 export async function downloadAndShareGpx(rideId: number, rideName: string): Promise<void> {
   const token = await AsyncStorage.getItem('auth_token');
   const BASE_URL = 'https://app.mototracker.app/api/v1';
-  const fileUri = FileSystem.documentDirectory + `ride-${rideId}.gpx`;
+  const destination = new File(Paths.document, `ride-${rideId}.gpx`);
 
-  const result = await FileSystem.downloadAsync(
+  const downloaded = await File.downloadFileAsync(
     `${BASE_URL}/rides/${rideId}/gpx`,
-    fileUri,
+    destination,
     { headers: { Authorization: `Bearer ${token ?? ''}` } }
   );
-
-  if (result.status !== 200) throw new Error('Failed to download GPX');
 
   const canShare = await Sharing.isAvailableAsync();
   if (!canShare) throw new Error('Sharing is not available on this device');
 
-  await Sharing.shareAsync(result.uri, {
+  await Sharing.shareAsync(downloaded.uri, {
     mimeType: 'application/gpx+xml',
     dialogTitle: `${rideName} waypoints`,
     UTI: 'public.data',

@@ -8,6 +8,7 @@ import {
   StyleSheet,
   ActivityIndicator,
   RefreshControl,
+  Image,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import {
@@ -18,7 +19,7 @@ import {
   RideRankings,
 } from '../services/leaderboard';
 
-const RANK_MEDAL: Record<number, string> = { 1: '🥇', 2: '🥈', 3: '🥉' };
+const RANK_COLOR: Record<number, string> = { 1: '#fbbf24', 2: '#94a3b8', 3: '#b45309' };
 
 const TYPE_STYLE: Record<string, { bg: string; text: string }> = {
   rally:    { bg: '#1d4ed8', text: '#bfdbfe' },
@@ -71,14 +72,20 @@ function RideRow({ ride, onPress }: { ride: LeaderboardRide; onPress: () => void
 // ─── Rankings View ────────────────────────────────────────────────────────────
 
 function RiderRow({ rider, rank }: { rider: LeaderboardRider; rank: number }) {
-  const medal = RANK_MEDAL[rank];
+  const initials = (rider.name ?? '?').split(' ').map(w => w[0]).join('').slice(0, 2).toUpperCase();
+  const rankColor = RANK_COLOR[rank] ?? '#475569';
   return (
     <View style={[styles.riderRow, rider.is_me && styles.riderRowMe]}>
       <View style={styles.rankCol}>
-        {medal
-          ? <Text style={styles.medal}>{medal}</Text>
-          : <Text style={styles.rankNum}>{rank}</Text>
-        }
+        <View style={[styles.avatarRing, { borderColor: rankColor }]}>
+          {rider.avatar_url
+            ? <Image source={{ uri: rider.avatar_url }} style={styles.avatarImg} />
+            : <View style={styles.avatarFallback}>
+                <Text style={styles.avatarInitials}>{initials}</Text>
+              </View>
+          }
+        </View>
+        <Text style={[styles.rankNum, { color: rankColor }]}>{rank}</Text>
       </View>
       <View style={styles.riderInfo}>
         <Text style={[styles.riderName, rider.is_me && styles.riderNameMe]} numberOfLines={1}>
@@ -378,9 +385,24 @@ const styles = StyleSheet.create({
     borderLeftWidth: 3,
     borderLeftColor: '#38bdf8',
   },
-  rankCol: { width: 36, alignItems: 'center', marginRight: 10 },
-  medal: { fontSize: 22 },
-  rankNum: { color: '#475569', fontSize: 15, fontWeight: '700' },
+  rankCol: { width: 44, alignItems: 'center', marginRight: 10 },
+  avatarRing: {
+    width: 40,
+    height: 40,
+    borderRadius: 20,
+    borderWidth: 2,
+    overflow: 'hidden',
+    marginBottom: 3,
+  },
+  avatarImg: { width: '100%', height: '100%' },
+  avatarFallback: {
+    flex: 1,
+    backgroundColor: '#1a2030',
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  avatarInitials: { color: '#94a3b8', fontSize: 13, fontWeight: '700' },
+  rankNum: { fontSize: 11, fontWeight: '700' },
   riderInfo: { flex: 1, marginRight: 8 },
   riderName: { color: '#f1f5f9', fontSize: 14, fontWeight: '600' },
   riderNameMe: { color: '#38bdf8' },

@@ -16,27 +16,29 @@ import { ActivityStackParamList } from '../types/navigation';
 
 type Props = NativeStackScreenProps<ActivityStackParamList, 'ActivityList'>;
 
-interface Verification {
-  id: number;
+interface ActivityItem {
+  id: number | string;
   ride_id: number;
   ride_name: string | null;
   waypoint_id: number;
   waypoint_name: string | null;
-  type: 'photo' | 'gpx';
-  status: 'pending' | 'accepted' | 'rejected' | 'needs_review';
+  type: 'photo' | 'gpx' | 'traccar';
+  status: 'pending' | 'accepted' | 'rejected' | 'needs_review' | 'credited';
   submitted_at: string | null;
 }
 
 const STATUS_STYLE: Record<string, { bg: string; text: string; label: string }> = {
-  pending:      { bg: '#1c1a0a', text: '#fbbf24', label: 'Pending' },
-  accepted:     { bg: '#0a1f0a', text: '#86efac', label: 'Accepted' },
-  rejected:     { bg: '#1a0a0a', text: '#fca5a5', label: 'Rejected' },
-  needs_review: { bg: '#1a0f0a', text: '#fb923c', label: 'Needs Review' },
+  pending:      { bg: '#1c1a0a', text: '#fbbf24',  label: 'Pending'      },
+  accepted:     { bg: '#0a1f0a', text: '#86efac',  label: 'Accepted'     },
+  rejected:     { bg: '#1a0a0a', text: '#fca5a5',  label: 'Rejected'     },
+  needs_review: { bg: '#1a0f0a', text: '#fb923c',  label: 'Needs Review' },
+  credited:     { bg: '#0a1f0a', text: '#86efac',  label: 'GPS Credit'   },
 };
 
 const TYPE_ICON: Record<string, string> = {
-  photo: '📷',
-  gpx:   '📍',
+  photo:   '📷',
+  gpx:     '📍',
+  traccar: '📡',
 };
 
 function formatDate(iso: string | null): string {
@@ -45,18 +47,18 @@ function formatDate(iso: string | null): string {
 }
 
 export default function ActivityScreen({ navigation }: Props) {
-  const [verifications, setVerifications] = useState<Verification[]>([]);
-  const [loading, setLoading]             = useState(true);
-  const [refreshing, setRefreshing]       = useState(false);
-  const [error, setError]                 = useState<string | null>(null);
+  const [items, setItems]         = useState<ActivityItem[]>([]);
+  const [loading, setLoading]     = useState(true);
+  const [refreshing, setRefreshing] = useState(false);
+  const [error, setError]         = useState<string | null>(null);
 
   const fetchActivity = useCallback(async (isRefresh = false) => {
     if (isRefresh) setRefreshing(true);
     else setLoading(true);
     setError(null);
     try {
-      const res = await api.get<{ data: Verification[] }>('/verifications');
-      setVerifications(res.data);
+      const res = await api.get<{ data: ActivityItem[] }>('/verifications');
+      setItems(res.data);
     } catch (e: any) {
       setError(e.message || 'Failed to load activity.');
     } finally {
@@ -94,33 +96,36 @@ export default function ActivityScreen({ navigation }: Props) {
     <SafeAreaView style={styles.container} edges={['top']}>
       <Header />
       <FlatList
-        data={verifications}
+        data={items}
         keyExtractor={item => String(item.id)}
-        contentContainerStyle={verifications.length === 0 ? styles.emptyContainer : styles.listContent}
+        contentContainerStyle={items.length === 0 ? styles.emptyContainer : styles.listContent}
         refreshControl={
           <RefreshControl refreshing={refreshing} onRefresh={() => fetchActivity(true)} tintColor="#38bdf8" />
         }
         ListEmptyComponent={
           <View style={styles.centered}>
-            <Text style={styles.emptyText}>No submissions yet.{'\n'}Join a ride to get started.</Text>
+            <Text style={styles.emptyText}>No activity yet.{'\n'}Join a ride to get started.</Text>
           </View>
         }
         renderItem={({ item }) => {
           const statusStyle = STATUS_STYLE[item.status] ?? STATUS_STYLE.pending;
+          const isGps = item.type === 'traccar';
+          const label = item.waypoint_name ?? (isGps ? 'GPS Waypoint Hit' : item.type === 'gpx' ? 'GPX Upload' : 'Photo Upload');
+
           return (
             <TouchableOpacity
               style={styles.row}
-              activeOpacity={0.75}
-              onPress={() => navigation.navigate('EvidenceDetail', { verificationId: item.id, type: item.type })}
+              activeOpacity={isGps ? 1 : 0.75}
+              onPress={() => {
+                if (!isGps) {
+                  navigation.navigate('EvidenceDetail', { verificationId: item.id as number, type: item.type });
+                }
+              }}
             >
               <Text style={styles.typeIcon}>{TYPE_ICON[item.type] ?? '📋'}</Text>
               <View style={styles.rowBody}>
-                <Text style={styles.waypointName} numberOfLines={1}>
-                  {item.waypoint_name ?? (item.type === 'gpx' ? 'GPX Upload' : 'Photo Upload')}
-                </Text>
-                <Text style={styles.rideName} numberOfLines={1}>
-                  {item.ride_name ?? 'Unknown ride'}
-                </Text>
+                <Text style={styles.waypointName} numberOfLines={1}>{label}</Text>
+                <Text style={styles.rideName} numberOfLines={1}>{item.ride_name ?? 'Unknown ride'}</Text>
                 <Text style={styles.date}>{formatDate(item.submitted_at)}</Text>
               </View>
               <View style={styles.rowRight}>
@@ -129,7 +134,7 @@ export default function ActivityScreen({ navigation }: Props) {
                     {statusStyle.label}
                   </Text>
                 </View>
-                <Text style={styles.chevron}>›</Text>
+                {!isGps && <Text style={styles.chevron}>›</Text>}
               </View>
             </TouchableOpacity>
           );

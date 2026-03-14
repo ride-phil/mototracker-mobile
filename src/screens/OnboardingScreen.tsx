@@ -233,10 +233,10 @@ export default function OnboardingScreen() {
         <StepCard
           number={3}
           title="Install Traccar Client"
-          done={false}
+          done={s.signal?.status === 'communicating'}
           locked={false}
-          alwaysOpen
-          badge="On your phone"
+          alwaysOpen={s.signal?.status !== 'communicating'}
+          badge={s.signal?.status === 'communicating' ? undefined : 'On your phone'}
         >
           <TouchableOpacity style={styles.storeButton} onPress={openTraccarClient}>
             <Text style={styles.storeButtonText}>
@@ -254,7 +254,7 @@ export default function OnboardingScreen() {
                 <Text style={styles.configureButtonText}>⚡ Open & Configure Traccar</Text>
               </TouchableOpacity>
               <Text style={styles.configureHint}>
-                Opens Traccar Client fully configured. Grant all permission prompts when asked — including {'"'}Allow all the time{'"'} for location and battery optimisation exemption. Then tap Start.
+                Opens Traccar Client fully configured and tracking starts automatically. Grant all permission prompts when asked — including {'"'}Allow all the time{'"'} for location and battery optimisation exemption.
               </Text>
             </>
           ) : (

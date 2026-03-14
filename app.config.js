@@ -15,6 +15,14 @@ module.exports = ({ config }) => {
           RNMapboxMapsDownloadToken: mapboxDownloadToken,
         },
       ],
+      [
+        'expo-notifications',
+        {
+          icon: './assets/notification-icon.png',
+          color: '#38bdf8',
+          sounds: [],
+        },
+      ],
     ],
     extra: {
       ...config.extra,

@@ -33,22 +33,6 @@
     "web": {
       "favicon": "./assets/favicon.png"
     },
-    "plugins": [
-      [
-        "@rnmapbox/maps",
-        {
-          "RNMapboxMapsDownloadToken": "MAPBOX_DOWNLOAD_TOKEN"
-        }
-      ],
-      [
-        "expo-notifications",
-        {
-          "icon": "./assets/notification-icon.png",
-          "color": "#38bdf8",
-          "sounds": []
-        }
-      ]
-    ],
     "extra": {
       "eas": {
         "projectId": "6cba8956-3e71-4dbf-bb8e-1a9b4dd8fab9"

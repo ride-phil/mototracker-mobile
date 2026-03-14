@@ -254,7 +254,7 @@ export default function OnboardingScreen() {
                 <Text style={styles.configureButtonText}>⚡ Open & Configure Traccar</Text>
               </TouchableOpacity>
               <Text style={styles.configureHint}>
-                Opens Traccar Client with your device ID and server pre-filled. Just tap Start.
+                Opens Traccar Client fully configured. Grant all permission prompts when asked — including {'"'}Allow all the time{'"'} for location and battery optimisation exemption. Then tap Start.
               </Text>
             </>
           ) : (

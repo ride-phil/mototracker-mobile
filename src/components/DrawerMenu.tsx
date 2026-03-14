@@ -79,7 +79,7 @@ export default function DrawerMenu({ visible, onClose, onNavigate }: Props) {
         {/* Header */}
         <View style={styles.drawerHeader}>
           <Text style={styles.appName}>MotoTracker</Text>
-          <Text style={styles.appTagline}>Ride. Explore. Conquer.</Text>
+          <Text style={styles.appTagline}>Your ride. Verified.</Text>
         </View>
 
         {/* Nav items */}

@@ -115,7 +115,7 @@ export default function AppDrawer({ children }: Props) {
           <SafeAreaView style={styles.drawerInner} edges={['top', 'bottom']}>
             <View style={styles.drawerHeader}>
               <Text style={styles.drawerTitle}>MotoTracker</Text>
-              <Text style={styles.drawerTagline}>Ride. Explore. Conquer.</Text>
+              <Text style={styles.drawerTagline}>Your ride. Verified.</Text>
             </View>
 
             <View style={styles.nav}>

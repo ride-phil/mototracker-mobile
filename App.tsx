@@ -35,7 +35,7 @@ function handleNotificationTap(response: Notifications.NotificationResponse): vo
   if ((type === 'waypoint_hit' || type === 'verification_accepted' || type === 'verification_rejected') && rideId) {
     navigationRef.navigate('Rides', {
       screen: 'MyProgress',
-      params: { rideId },
+      params: { ride: { id: rideId } },
     });
   } else if (type === 'ride_launched' && rideId) {
     navigationRef.navigate('Rides', {

@@ -12,7 +12,7 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { NativeStackScreenProps } from '@react-navigation/native-stack';
 import { RidesStackParamList } from '../types/navigation';
 import { getRideProgress, RideProgress } from '../services/progress';
-import { getWaypoints, Waypoint } from '../services/rides';
+import { getRide, getWaypoints, Ride, Waypoint } from '../services/rides';
 
 type Props = NativeStackScreenProps<RidesStackParamList, 'MyProgress'>;
 
@@ -32,8 +32,9 @@ const STATUS_COLORS: Record<string, { bg: string; text: string; border: string }
 };
 
 export default function MyProgressScreen({ route, navigation }: Props) {
-  const { ride } = route.params;
+  const { ride: rideParam } = route.params;
 
+  const [ride, setRide]             = useState<Ride>(rideParam);
   const [progress, setProgress]     = useState<RideProgress | null>(null);
   const [waypoints, setWaypoints]   = useState<Waypoint[]>([]);
   const [loading, setLoading]       = useState(true);
@@ -46,10 +47,12 @@ export default function MyProgressScreen({ route, navigation }: Props) {
     setError(null);
 
     try {
-      const [data, wps] = await Promise.all([
-        getRideProgress(ride.id),
-        getWaypoints(ride.id),
+      const [freshRide, data, wps] = await Promise.all([
+        getRide(rideParam.id),
+        getRideProgress(rideParam.id),
+        getWaypoints(rideParam.id),
       ]);
+      setRide(freshRide);
       setProgress(data);
       setWaypoints(wps);
     } catch (e: any) {
@@ -58,7 +61,7 @@ export default function MyProgressScreen({ route, navigation }: Props) {
       setLoading(false);
       setRefreshing(false);
     }
-  }, [ride.id]);
+  }, [rideParam.id]);
 
   useEffect(() => { fetchProgress(); }, [fetchProgress]);
 

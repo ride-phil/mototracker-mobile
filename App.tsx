@@ -2,9 +2,10 @@ import React, { useState, useEffect } from 'react';
 import { ActivityIndicator, View, Text } from 'react-native';
 import { StatusBar } from 'expo-status-bar';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
-import { NavigationContainer } from '@react-navigation/native';
+import { NavigationContainer, createNavigationContainerRef } from '@react-navigation/native';
 import { createNativeStackNavigator } from '@react-navigation/native-stack';
 import { createBottomTabNavigator } from '@react-navigation/bottom-tabs';
+import * as Notifications from 'expo-notifications';
 import LoginScreen from './src/screens/LoginScreen';
 import RegisterScreen from './src/screens/RegisterScreen';
 import ForgotPasswordScreen from './src/screens/ForgotPasswordScreen';
@@ -21,6 +22,28 @@ import AppDrawer from './src/components/AppDrawer';
 import { getStoredUser, AuthUser } from './src/services/auth';
 import { registerPushToken } from './src/services/notifications';
 import { ActivityStackParamList, AuthStackParamList, ProfileStackParamList, RidesStackParamList, TabParamList } from './src/types/navigation';
+
+const navigationRef = createNavigationContainerRef<any>();
+
+function handleNotificationTap(response: Notifications.NotificationResponse): void {
+  const data = response.notification.request.content.data as Record<string, any>;
+  const type = data?.type;
+  const rideId = data?.ride_id;
+
+  if (!navigationRef.isReady()) return;
+
+  if ((type === 'waypoint_hit' || type === 'verification_accepted' || type === 'verification_rejected') && rideId) {
+    navigationRef.navigate('Rides', {
+      screen: 'MyProgress',
+      params: { rideId },
+    });
+  } else if (type === 'ride_launched' && rideId) {
+    navigationRef.navigate('Rides', {
+      screen: 'RideDetail',
+      params: { rideId },
+    });
+  }
+}
 
 const AuthStack      = createNativeStackNavigator<AuthStackParamList>();
 const RidesStack     = createNativeStackNavigator<RidesStackParamList>();
@@ -123,6 +146,18 @@ export default function App() {
     }
   }, [user]);
 
+  useEffect(() => {
+    // Handle tap on a notification that arrived while app was foregrounded
+    const foregroundSub = Notifications.addNotificationResponseReceivedListener(handleNotificationTap);
+
+    // Handle tap on a notification that launched/resumed the app from background/killed
+    Notifications.getLastNotificationResponseAsync().then((response) => {
+      if (response) handleNotificationTap(response);
+    });
+
+    return () => foregroundSub.remove();
+  }, []);
+
   if (loading) {
     return (
       <View style={{ flex: 1, justifyContent: 'center', alignItems: 'center', backgroundColor: '#0f1117' }}>
@@ -138,7 +173,7 @@ export default function App() {
     return (
       <SafeAreaProvider>
         <StatusBar style="light" />
-        <NavigationContainer>
+        <NavigationContainer ref={navigationRef}>
           <AuthStack.Navigator screenOptions={{ headerShown: false, contentStyle: { backgroundColor: '#0f1117' } }}>
             <AuthStack.Screen name="Login">
               {(props) => <LoginScreen {...props} onLoginSuccess={handleAuthSuccess} />}
@@ -156,7 +191,7 @@ export default function App() {
   return (
     <SafeAreaProvider>
       <StatusBar style="light" />
-      <NavigationContainer>
+      <NavigationContainer ref={navigationRef}>
         <AppDrawer>
           <MainTabs onLogout={() => setUser(null)} />
         </AppDrawer>

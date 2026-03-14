@@ -19,9 +19,11 @@ import OnboardingScreen from './src/screens/OnboardingScreen';
 import ActivityScreen from './src/screens/ActivityScreen';
 import EvidenceDetailScreen from './src/screens/EvidenceDetailScreen';
 import AppDrawer from './src/components/AppDrawer';
+import LeaderboardScreen from './src/screens/LeaderboardScreen';
+import AboutScreen from './src/screens/AboutScreen';
 import { getStoredUser, AuthUser } from './src/services/auth';
 import { registerPushToken } from './src/services/notifications';
-import { ActivityStackParamList, AuthStackParamList, ProfileStackParamList, RidesStackParamList, TabParamList } from './src/types/navigation';
+import { ActivityStackParamList, AuthStackParamList, ProfileStackParamList, RidesStackParamList, RootStackParamList, TabParamList } from './src/types/navigation';
 
 const navigationRef = createNavigationContainerRef<any>();
 
@@ -45,6 +47,7 @@ function handleNotificationTap(response: Notifications.NotificationResponse): vo
   }
 }
 
+const RootStack      = createNativeStackNavigator<RootStackParamList>();
 const AuthStack      = createNativeStackNavigator<AuthStackParamList>();
 const RidesStack     = createNativeStackNavigator<RidesStackParamList>();
 const ActivityStack  = createNativeStackNavigator<ActivityStackParamList>();
@@ -192,9 +195,17 @@ export default function App() {
     <SafeAreaProvider>
       <StatusBar style="light" />
       <NavigationContainer ref={navigationRef}>
-        <AppDrawer>
-          <MainTabs onLogout={() => setUser(null)} />
-        </AppDrawer>
+        <RootStack.Navigator screenOptions={{ headerShown: false, contentStyle: { backgroundColor: '#0f1117' }, animation: 'slide_from_right' }}>
+          <RootStack.Screen name="Main">
+            {() => (
+              <AppDrawer>
+                <MainTabs onLogout={() => setUser(null)} />
+              </AppDrawer>
+            )}
+          </RootStack.Screen>
+          <RootStack.Screen name="Leaderboard" component={LeaderboardScreen} />
+          <RootStack.Screen name="About"       component={AboutScreen} />
+        </RootStack.Navigator>
       </NavigationContainer>
     </SafeAreaProvider>
   );

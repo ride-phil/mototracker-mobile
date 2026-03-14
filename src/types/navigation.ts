@@ -36,3 +36,10 @@ export type AuthStackParamList = {
   Register: undefined;
   ForgotPassword: undefined;
 };
+
+// Root stack (wraps tabs + drawer-accessible screens)
+export type RootStackParamList = {
+  Main: undefined;
+  Leaderboard: undefined;
+  About: undefined;
+};

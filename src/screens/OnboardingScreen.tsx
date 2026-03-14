@@ -90,6 +90,19 @@ export default function OnboardingScreen() {
     Linking.openURL(url);
   }
 
+  function openTraccarWithConfig(serverUrl: string, deviceId: string) {
+    const params = new URLSearchParams({
+      url: serverUrl,
+      id: deviceId,
+      interval: '30',
+      distance: '10',
+      accuracy: 'high',
+      buffer: 'true',
+      stopDetection: 'true',
+    });
+    Linking.openURL(`org.traccar.client://config?${params.toString()}`);
+  }
+
   if (loading) {
     return (
       <SafeAreaView style={styles.container} edges={['top']}>
@@ -216,7 +229,7 @@ export default function OnboardingScreen() {
           )}
         </StepCard>
 
-        {/* ── Step 3: Install Traccar Client ── */}
+        {/* ── Step 3: Install & Configure Traccar Client ── */}
         <StepCard
           number={3}
           title="Install Traccar Client"
@@ -227,37 +240,26 @@ export default function OnboardingScreen() {
         >
           <TouchableOpacity style={styles.storeButton} onPress={openTraccarClient}>
             <Text style={styles.storeButtonText}>
-              {Platform.OS === 'ios' ? '↗ Open App Store' : '↗ Open Play Store'}
+              {Platform.OS === 'ios' ? '↗ Download on App Store' : '↗ Download on Play Store'}
             </Text>
           </TouchableOpacity>
 
-          <Text style={styles.stepNote}>After installing, open Settings and enter these values:</Text>
-
-          <View style={styles.credentialsBox}>
-            <CredRow
-              label="Device identifier"
-              value={s.device_uid ?? '— complete step 2 first —'}
-              field="device_uid_3"
-              copied={copied}
-              onCopy={s.device_uid ? copyToClipboard : undefined}
-            />
-            <CredRow label="Server URL" value={s.server_url} field="server_url_3" copied={copied} onCopy={copyToClipboard} />
-            <CredRow label="Frequency" value="30 seconds" field="freq" copied={copied} onCopy={copyToClipboard} />
-          </View>
-
-          <View style={styles.checklistBox}>
-            {[
-              'Set location accuracy to High, distance to 10m',
-              'Enable Offline Buffering and Stop Detection',
-              'Grant Always On location permission',
-              'Toggle Send Location ON',
-            ].map((item, i) => (
-              <View key={i} style={styles.checklistItem}>
-                <Text style={styles.checklistDot}>›</Text>
-                <Text style={styles.checklistText}>{item}</Text>
-              </View>
-            ))}
-          </View>
+          {s.has_device ? (
+            <>
+              <Text style={styles.stepNote}>Already installed? One tap configures everything:</Text>
+              <TouchableOpacity
+                style={styles.configureButton}
+                onPress={() => openTraccarWithConfig(s.server_url, s.device_uid!)}
+              >
+                <Text style={styles.configureButtonText}>⚡ Open & Configure Traccar</Text>
+              </TouchableOpacity>
+              <Text style={styles.configureHint}>
+                Opens Traccar Client with your device ID and server pre-filled. Just tap Start.
+              </Text>
+            </>
+          ) : (
+            <Text style={styles.stepNote}>Complete step 2 first to get your auto-configure link.</Text>
+          )}
         </StepCard>
 
         {/* ── Step 4: Confirm Signal ── */}
@@ -553,6 +555,16 @@ const styles = StyleSheet.create({
   storeButtonText: { color: '#38bdf8', fontSize: 15, fontWeight: '600' },
 
   stepNote: { color: '#64748b', fontSize: 13, marginBottom: 10 },
+
+  configureButton: {
+    backgroundColor: '#38bdf8',
+    borderRadius: 10,
+    paddingVertical: 14,
+    alignItems: 'center',
+    marginBottom: 10,
+  },
+  configureButtonText: { color: '#0f1117', fontSize: 15, fontWeight: '700' },
+  configureHint: { color: '#475569', fontSize: 12, textAlign: 'center', lineHeight: 18 },
 
   // Checklist
   checklistBox: { marginTop: 12 },

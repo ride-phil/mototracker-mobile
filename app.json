@@ -17,7 +17,6 @@
     },
     "android": {
       "package": "app.mototracker.rider",
-      "googleServicesFile": "./google-services.json",
       "adaptiveIcon": {
         "backgroundColor": "#0f1117",
         "foregroundImage": "./assets/android-icon-foreground.png",

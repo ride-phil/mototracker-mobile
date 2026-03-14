@@ -34,6 +34,10 @@ yarn-error.*
 .env
 .env*.local
 
+# Firebase — contains API keys, managed via EAS secrets
+google-services.json
+GoogleService-Info.plist
+
 # typescript
 *.tsbuildinfo
 
